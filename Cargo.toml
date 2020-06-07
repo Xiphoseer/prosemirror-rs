@@ -1,0 +1,12 @@
+[package]
+name = "prosemirror"
+version = "0.1.0"
+authors = ["Xiphoseer"]
+edition = "2018"
+
+[dependencies]
+serde_json = "1.0.53"
+
+[dependencies.serde]
+version = "1.0.97"
+features = ["derive"]
