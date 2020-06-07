@@ -10,12 +10,12 @@ mod resolved_pos;
 mod slice;
 pub(crate) mod util;
 
-pub use slice::Slice;
 pub use fragment::Fragment;
 pub use marks::{Mark, MarkSet};
 pub use node::{CodeBlockAttrs, HeadingAttrs, ImageAttrs, Node, Text};
-pub use resolved_pos::{ResolveErr, ResolvedPos};
 pub(crate) use resolved_pos::Index;
+pub use resolved_pos::{ResolveErr, ResolvedPos};
+pub use slice::Slice;
 
 #[cfg(test)]
 mod tests {
