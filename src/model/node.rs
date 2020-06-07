@@ -1,38 +1,128 @@
-use super::{de, util, Fragment, MarkSet};
+use super::{util, Fragment, MarkSet, ResolveErr, ResolvedPos, Schema};
 use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
+use std::fmt::Debug;
 use std::ops::RangeBounds;
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct HeadingAttrs {
-    pub level: u8,
+/// This class represents a node in the tree that makes up a ProseMirror document. So a document is
+/// an instance of Node, with children that are also instances of Node.
+pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq + Eq {
+    /// The schema that this node type belongs to
+    type Schema: Schema<Node = Self>;
+
+    /// Create a copy of this node with only the content between the given positions.
+    fn cut<R: RangeBounds<usize>>(&self, range: R) -> Cow<Self> {
+        let from = util::from(&range);
+
+        if let Some((text, marks)) = self.text_node() {
+            let len = text.len_utf16;
+            let to = util::to(&range, len);
+
+            if from == 0 && to == len {
+                return Cow::Borrowed(self);
+            }
+            let (_, rest) = util::split_at_utf16(&text.content, from);
+            let (rest, _) = util::split_at_utf16(rest, to - from);
+
+            Cow::Owned(Self::new_text_node(
+                Text::from(rest.to_owned()),
+                marks.clone(),
+            ))
+        } else {
+            let content_size = self.content_size();
+            let to = util::to(&range, content_size);
+
+            if from == 0 && to == content_size {
+                Cow::Borrowed(self)
+            } else {
+                Cow::Owned(self.copy(|c| c.cut(from..to)))
+            }
+        }
+    }
+
+    /// Resolve the given position in the document, returning a struct with information about its
+    /// context.
+    fn resolve(&self, pos: usize) -> Result<ResolvedPos<Self::Schema>, ResolveErr> {
+        ResolvedPos::resolve(self, pos)
+    }
+
+    /// Create a new node with the same markup as this node, containing the given content (or
+    /// empty, if no content is given).
+    fn copy<F>(&self, map: F) -> Self
+    where
+        F: FnOnce(&Fragment<Self::Schema>) -> Fragment<Self::Schema>;
+
+    /// Concatenates all the text nodes found in this fragment and its children.
+    fn text_content(&self) -> String {
+        if let Some((text, _)) = self.text_node() {
+            text.content.clone()
+        } else {
+            let mut buf = String::new();
+            if let Some(c) = self.content() {
+                c.text_between(&mut buf, true, 0, c.size(), Some(""), None);
+            }
+            buf
+        }
+    }
+
+    /// Represents `.content.size` in JS
+    fn content_size(&self) -> usize {
+        self.content().map(Fragment::size).unwrap_or(0)
+    }
+
+    /// Get the text and marks if this is a text node
+    fn text_node(&self) -> Option<(&Text, &MarkSet<Self::Schema>)>;
+
+    /// Create a new text node
+    fn new_text_node(text: Text, marks: MarkSet<Self::Schema>) -> Self;
+
+    /// Creates a new text node
+    fn text<A: Into<String>>(text: A) -> Self;
+
+    /// A container holding the node's children.
+    fn content(&self) -> Option<&Fragment<Self::Schema>>;
+
+    /// Get the child node at the given index. Raises an error when the index is out of range.
+    fn child(&self, index: usize) -> Option<&Self> {
+        self.content().and_then(|c| c.child(index))
+    }
+
+    /// The number of children that the node has.
+    fn child_count(&self) -> usize {
+        self.content().map_or(0, Fragment::child_count)
+    }
+
+    /// True when this is a leaf node.
+    fn is_leaf(&self) -> bool {
+        self.content().is_none()
+    }
+
+    /// True when this is a block (non-inline node)
+    fn is_block(&self) -> bool;
+
+    /// True when this is a text node.
+    fn is_text(&self) -> bool {
+        self.text_node().is_some()
+    }
+
+    /// The size of this node, as defined by the integer-based indexing scheme. For text nodes,
+    /// this is the amount of characters. For other leaf nodes, it is one. For non-leaf nodes, it
+    /// is the size of the content plus two (the start and end token).
+    fn node_size(&self) -> usize {
+        match self.content() {
+            Some(c) => c.size() + 2,
+            None => {
+                if let Some((text, _)) = self.text_node() {
+                    text.len_utf16
+                } else {
+                    1
+                }
+            }
+        }
+    }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct CodeBlockAttrs {
-    pub params: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct BulletListAttrs {
-    tight: bool,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct OrderedListAttrs {
-    pub order: usize,
-    pub tight: bool,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct ImageAttrs {
-    pub src: String,
-    #[serde(default, deserialize_with = "de::deserialize_or_default")]
-    pub alt: String,
-    #[serde(default, deserialize_with = "de::deserialize_or_default")]
-    pub title: String,
-}
-
+/// A string that stores its length in utf-16
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(from = "String")]
 pub struct Text {
@@ -41,10 +131,12 @@ pub struct Text {
 }
 
 impl Text {
+    /// Return the contained string
     pub fn as_str(&self) -> &str {
         &self.content
     }
 
+    /// The length of this string if it were encoded in utf-16
     pub fn len_utf16(&self) -> usize {
         self.len_utf16
     }
@@ -65,225 +157,5 @@ impl Serialize for Text {
         S: Serializer,
     {
         self.content.serialize(serializer)
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum Node {
-    Doc {
-        #[serde(default)]
-        content: Fragment,
-    },
-    Heading {
-        attrs: HeadingAttrs,
-        #[serde(default)]
-        content: Fragment,
-    },
-    CodeBlock {
-        attrs: CodeBlockAttrs,
-        #[serde(default)]
-        content: Fragment,
-    },
-    Text {
-        // todo: replace with typemap
-        #[serde(default)]
-        marks: MarkSet,
-        text: Text,
-    },
-    Blockquote {
-        #[serde(default)]
-        content: Fragment,
-    },
-    Paragraph {
-        #[serde(default)]
-        content: Fragment,
-    },
-    BulletList {
-        #[serde(default)]
-        content: Fragment,
-        attrs: BulletListAttrs,
-    },
-    OrderedList {
-        #[serde(default)]
-        content: Fragment,
-        attrs: OrderedListAttrs,
-    },
-    ListItem {
-        #[serde(default)]
-        content: Fragment,
-    },
-    HorizontalRule,
-    HardBreak,
-    Image {
-        attrs: ImageAttrs,
-    },
-}
-
-impl From<&str> for Node {
-    fn from(text: &str) -> Node {
-        Self::text(text)
-    }
-}
-
-impl Node {
-    pub fn cut<R: RangeBounds<usize>>(&self, range: R) -> Cow<Node> {
-        let from = util::from(&range);
-
-        if let Node::Text { text, marks } = self {
-            let len = text.len_utf16;
-            let to = util::to(&range, len);
-
-            if from == 0 && to == len {
-                return Cow::Borrowed(self);
-            }
-            let (_, rest) = util::split_at_utf16(&text.content, from);
-            let (rest, _) = util::split_at_utf16(rest, to - from);
-
-            Cow::Owned(Node::Text {
-                text: Text::from(rest.to_owned()),
-                marks: marks.clone(),
-            })
-        } else {
-            let content_size = self.content_size();
-            let to = util::to(&range, content_size);
-
-            if from == 0 && to == content_size {
-                Cow::Borrowed(self)
-            } else {
-                Cow::Owned(self.copy(|c| c.cut(from..to)))
-            }
-        }
-    }
-
-    pub fn copy<F>(&self, map: F) -> Node
-    where
-        F: FnOnce(&Fragment) -> Fragment,
-    {
-        match self {
-            Self::Doc { content } => Self::Doc {
-                content: map(content),
-            },
-            Self::Heading { attrs, content } => Self::Heading {
-                attrs: attrs.clone(),
-                content: map(content),
-            },
-            Self::CodeBlock { attrs, content } => Self::CodeBlock {
-                attrs: attrs.clone(),
-                content: map(content),
-            },
-            Self::Text { text, marks } => Self::Text {
-                text: text.clone(),
-                marks: marks.clone(),
-            },
-            Self::Blockquote { content } => Self::Blockquote {
-                content: map(content),
-            },
-            Self::Paragraph { content } => Self::Paragraph {
-                content: map(content),
-            },
-            Self::BulletList { attrs, content } => Self::BulletList {
-                attrs: attrs.clone(),
-                content: map(content),
-            },
-            Self::OrderedList { attrs, content } => Self::OrderedList {
-                attrs: attrs.clone(),
-                content: map(content),
-            },
-            Self::ListItem { content } => Self::ListItem {
-                content: map(content),
-            },
-            Self::HorizontalRule => Self::HorizontalRule,
-            Self::HardBreak => Self::HardBreak,
-            Self::Image { attrs } => Self::Image {
-                attrs: attrs.clone(),
-            },
-        }
-    }
-
-    pub fn text_content(&self) -> String {
-        if let Node::Text { text, .. } = self {
-            text.content.clone()
-        } else {
-            let mut buf = String::new();
-            if let Some(c) = self.content() {
-                c.text_between(&mut buf, true, 0, c.size(), Some(""), None);
-            }
-            buf
-        }
-    }
-
-    pub fn content_size(&self) -> usize {
-        self.content().map(Fragment::size).unwrap_or(0)
-    }
-
-    pub fn text<A: Into<String>>(text: A) -> Self {
-        Node::Text {
-            text: Text::from(text.into()),
-            marks: MarkSet::new(),
-        }
-    }
-
-    pub fn content(&self) -> Option<&Fragment> {
-        match self {
-            Self::Doc { content } => Some(content),
-            Self::Heading { content, .. } => Some(content),
-            Self::CodeBlock { content, .. } => Some(content),
-            Self::Text { .. } => None,
-            Self::Blockquote { content } => Some(content),
-            Self::Paragraph { content } => Some(content),
-            Self::BulletList { content, .. } => Some(content),
-            Self::OrderedList { content, .. } => Some(content),
-            Self::ListItem { content } => Some(content),
-            Self::HorizontalRule => None,
-            Self::HardBreak => None,
-            Self::Image { .. } => None,
-        }
-    }
-
-    pub fn child(&self, index: usize) -> Option<&Node> {
-        self.content().and_then(|c| c.child(index))
-    }
-
-    pub fn child_count(&self) -> usize {
-        self.content().map_or(0, Fragment::count)
-    }
-
-    pub fn is_leaf(&self) -> bool {
-        self.content().is_none()
-    }
-
-    pub fn is_block(&self) -> bool {
-        match self {
-            Self::Doc { .. } => true,
-            Self::Paragraph { .. } => true,
-            Self::Blockquote { .. } => true,
-            Self::HorizontalRule => true,
-            Self::Heading { .. } => true,
-            Self::CodeBlock { .. } => true,
-            Self::OrderedList { .. } => true,
-            Self::BulletList { .. } => true,
-            Self::ListItem { .. } => true,
-            Self::Text { .. } => false,
-            Self::Image { .. } => false,
-            Self::HardBreak => false,
-        }
-    }
-
-    pub fn is_text(&self) -> bool {
-        matches!(self, Self::Text {..})
-    }
-
-    pub fn node_size(&self) -> usize {
-        match self.content() {
-            Some(c) => c.size() + 2,
-            None => {
-                if let Self::Text { text, .. } = self {
-                    text.len_utf16
-                } else {
-                    1
-                }
-            }
-        }
     }
 }

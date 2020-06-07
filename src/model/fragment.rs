@@ -1,24 +1,31 @@
-use super::{util, Index, Node};
+use super::{util, Index, Node, Schema};
 use serde::{Deserialize, Serialize, Serializer};
 use std::ops::RangeBounds;
 
+/// A fragment represents a node's collection of child nodes.
+
+/// Like nodes, fragments are persistent data structures, and you should not mutate them or their
+/// content. Rather, you create new instances whenever needed. The API tries to make this easy.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(from = "Vec<Node>")]
-pub struct Fragment {
-    inner: Vec<Node>,
+#[serde(from = "Vec<S::Node>")]
+pub struct Fragment<S: Schema> {
+    inner: Vec<S::Node>,
     size: usize,
 }
 
-impl Fragment {
+impl<S: Schema> Fragment<S> {
+    /// The size of the fragment, which is the total of the size of its content nodes.
     pub fn size(&self) -> usize {
         self.size
     }
 
-    pub fn count(&self) -> usize {
+    /// The number of child nodes in this fragment.
+    pub fn child_count(&self) -> usize {
         self.inner.len()
     }
 
-    pub fn cut<R: RangeBounds<usize>>(&self, range: R) -> Fragment {
+    /// Cut out the sub-fragment between the two given positions.
+    pub fn cut<R: RangeBounds<usize>>(&self, range: R) -> Self {
         let from = util::from(&range);
         let to = util::to(&range, self.size);
 
@@ -36,7 +43,7 @@ impl Fragment {
                 let end = pos + child.node_size();
                 if end > from {
                     let new_child = if pos < from || end > to {
-                        if let Node::Text { text, .. } = child {
+                        if let Some((text, _)) = child.text_node() {
                             child.cut(
                                 usize::max(0, from - pos)..usize::min(text.len_utf16(), to - pos),
                             )
@@ -63,7 +70,9 @@ impl Fragment {
         }
     }
 
-    pub fn nodes_between<F: FnMut(&Node, usize) -> bool>(
+    /// Invoke a callback for all descendant nodes between the given two positions (relative to
+    /// start of this fragment). Doesn't descend into a node when the callback returns `false`.
+    pub fn nodes_between<F: FnMut(&S::Node, usize) -> bool>(
         &self,
         from: usize,
         to: usize,
@@ -88,6 +97,9 @@ impl Fragment {
         }
     }
 
+    /// Get all text between positions from and to. When `block_separator` is given, it will be
+    /// inserted whenever a new block node is started. When `leaf_text` is given, it'll be inserted
+    /// for every non-text leaf node encountered.
     pub fn text_between(
         &self,
         text: &mut String,
@@ -101,7 +113,7 @@ impl Fragment {
             from,
             to,
             &mut move |node, pos| {
-                if let Node::Text { text: txt, .. } = node {
+                if let Some((txt, _)) = node.text_node() {
                     let (rest, skip) = if from > pos {
                         let skip = from - pos;
                         (util::split_at_utf16(txt.as_str(), skip).1, skip)
@@ -129,7 +141,7 @@ impl Fragment {
         )
     }
 
-    pub(crate) fn child(&self, index: usize) -> Option<&Node> {
+    pub(crate) fn child(&self, index: usize) -> Option<&S::Node> {
         self.inner.get(index)
     }
 
@@ -170,7 +182,7 @@ impl Fragment {
     }
 }
 
-impl Default for Fragment {
+impl<S: Schema> Default for Fragment<S> {
     fn default() -> Self {
         Self {
             inner: Vec::new(),
@@ -179,40 +191,46 @@ impl Default for Fragment {
     }
 }
 
-impl Serialize for Fragment {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<S: Schema> Serialize for Fragment<S> {
+    fn serialize<Sr>(&self, serializer: Sr) -> Result<Sr::Ok, Sr::Error>
     where
-        S: Serializer,
+        Sr: Serializer,
     {
         self.inner.serialize(serializer)
     }
 }
 
-impl From<Vec<Node>> for Fragment {
-    fn from(src: Vec<Node>) -> Fragment {
+impl<S: Schema> From<Vec<S::Node>> for Fragment<S> {
+    fn from(src: Vec<S::Node>) -> Fragment<S> {
         let size = src.iter().map(|x| x.node_size()).sum::<usize>();
         Fragment { inner: src, size }
     }
 }
 
-impl From<Fragment> for Vec<Node> {
-    fn from(src: Fragment) -> Vec<Node> {
+impl<S: Schema> From<Fragment<S>> for Vec<S::Node> {
+    fn from(src: Fragment<S>) -> Vec<S::Node> {
         src.inner
     }
 }
 
-impl<A, B> From<(A, B)> for Fragment
+impl<S, A, B> From<(A, B)> for Fragment<S>
 where
-    A: Into<Node>,
-    B: Into<Node>,
+    S: Schema,
+    A: Into<S::Node>,
+    B: Into<S::Node>,
 {
     fn from((a, b): (A, B)) -> Self {
         Self::from(vec![a.into(), b.into()])
     }
 }
 
-impl<A: Into<Node>> From<A> for Fragment {
-    fn from(a: A) -> Self {
+impl<N, S, A> From<(A,)> for Fragment<S>
+where
+    N: Node,
+    S: Schema<Node = N>,
+    A: Into<N>,
+{
+    fn from((a,): (A,)) -> Self {
         Self::from(vec![a.into()])
     }
 }

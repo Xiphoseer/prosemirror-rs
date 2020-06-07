@@ -1,21 +1,11 @@
-use super::de;
+use super::Schema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::fmt::Debug;
 
-pub type MarkSet = HashSet<Mark>;
+/// A set of marks
+#[allow(type_alias_bounds)]
+pub type MarkSet<S: Schema> = HashSet<S::Mark>;
 
-#[derive(Debug, Hash, Eq, Clone, PartialEq, Deserialize, Serialize)]
-pub struct LinkAttrs {
-    href: String,
-    #[serde(default, deserialize_with = "de::deserialize_or_default")]
-    title: String,
-}
-
-#[derive(Debug, Hash, Eq, Clone, PartialEq, Deserialize, Serialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum Mark {
-    Strong,
-    Em,
-    Code,
-    Link { attrs: LinkAttrs },
-}
+/// The methods that
+pub trait Mark: Serialize + for<'de> Deserialize<'de> + Debug + Clone + PartialEq + Eq {}

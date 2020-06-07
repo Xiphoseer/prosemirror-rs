@@ -2,52 +2,54 @@
 //!
 //! This module is derived from the `prosemirror-markdown` schema and the
 //! the general JSON serialization of nodes.
-mod de;
 mod fragment;
 mod marks;
 mod node;
 mod resolved_pos;
+mod schema;
 mod slice;
 pub(crate) mod util;
 
 pub use fragment::Fragment;
 pub use marks::{Mark, MarkSet};
-pub use node::{CodeBlockAttrs, HeadingAttrs, ImageAttrs, Node, Text};
+pub use node::{Node, Text};
 pub(crate) use resolved_pos::Index;
 pub use resolved_pos::{ResolveErr, ResolvedPos};
+pub use schema::Schema;
 pub use slice::Slice;
 
 #[cfg(test)]
 mod tests {
-    use super::{Fragment, ImageAttrs, Index, Mark, Node, ResolvedPos, Text};
+    use super::{Fragment, Index, Node, ResolvedPos, Text};
+    use crate::markdown::{ImageAttrs, MarkdownMark, MarkdownNode, MarkdownSchema as Schema};
     use std::ops::Deref;
 
-    fn doc<A: Into<Fragment>>(content: A) -> Node {
-        Node::Doc {
+    fn doc<A: Into<Fragment<Schema>>>(content: A) -> MarkdownNode {
+        MarkdownNode::Doc {
             content: content.into(),
         }
     }
 
-    fn em(content: &str) -> Node {
-        Node::Text {
+    fn em(content: &str) -> MarkdownNode {
+        MarkdownNode::Text {
             text: Text::from(content.to_string()),
-            marks: [Mark::Em].iter().cloned().collect(),
+            marks: [MarkdownMark::Em].iter().cloned().collect(),
         }
     }
 
-    fn p<A: Into<Fragment>>(content: A) -> Node {
-        Node::Paragraph {
+    fn p<A: Into<Fragment<Schema>>>(content: A) -> MarkdownNode {
+        MarkdownNode::Paragraph {
             content: content.into(),
         }
     }
 
-    fn blockquote<A: Into<Fragment>>(content: A) -> Node {
-        Node::Blockquote {
+    fn blockquote<A: Into<Fragment<Schema>>>(content: A) -> MarkdownNode {
+        MarkdownNode::Blockquote {
             content: content.into(),
         }
     }
 
-    fn node<A: Into<Node>>(src: A) -> Node {
+    fn node<A: Into<MarkdownNode>>(src: A) -> MarkdownNode {
         src.into()
     }
 
@@ -66,8 +68,8 @@ mod tests {
     #[test]
     fn test_deserialize_text() {
         assert_eq!(
-            serde_json::from_str::<Node>(r#"{"type": "text", "text": "Foo"}"#).unwrap(),
-            Node::text("Foo"),
+            serde_json::from_str::<MarkdownNode>(r#"{"type": "text", "text": "Foo"}"#).unwrap(),
+            MarkdownNode::text("Foo"),
         );
     }
 
@@ -91,30 +93,30 @@ mod tests {
         assert_eq!(ct_3.find_index(9, false), Err(()));
 
         assert_eq!(
-            ResolvedPos::resolve(&test_3, 0),
+            ResolvedPos::<Schema>::resolve(&test_3, 0),
             Ok(ResolvedPos::new(0, vec![(&test_3, 0, 0)], 0))
         );
     }
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     struct Sol<'a> {
-        node: &'a Node,
+        node: &'a MarkdownNode,
         start: usize,
         end: usize,
     }
 
-    fn sol(node: &Node, start: usize, end: usize) -> Sol {
+    fn sol(node: &MarkdownNode, start: usize, end: usize) -> Sol {
         Sol { node, start, end }
     }
 
     #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     enum Exp<'a> {
-        Node(&'a Node),
+        Node(&'a MarkdownNode),
         Str(&'static str),
         Null,
     }
 
-    impl<'a> PartialEq<Exp<'a>> for Option<std::borrow::Cow<'a, Node>> {
+    impl<'a> PartialEq<Exp<'a>> for Option<std::borrow::Cow<'a, MarkdownNode>> {
         fn eq(&self, other: &Exp<'a>) -> bool {
             if let Some(node) = self {
                 match other {
@@ -130,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_resolve() {
-        let test_doc = doc((p("ab"), blockquote(p((em("cd"), "ef")))));
+        let test_doc = doc((p(("ab",)), blockquote((p((em("cd"), "ef")),))));
         let _doc = sol(&test_doc, 0, 12);
         let _p1 = sol(test_doc.child(0).unwrap(), 1, 3);
         let _blk = sol(test_doc.child(1).unwrap(), 5, 11);
@@ -153,7 +155,7 @@ mod tests {
         ];
 
         for (pos, (path, parent_offset, before, after)) in expected.iter().enumerate() {
-            let pos = ResolvedPos::resolve(&test_doc, pos).unwrap();
+            let pos = ResolvedPos::<Schema>::resolve(&test_doc, pos).unwrap();
             assert_eq!(pos.depth, path.len() - 1);
 
             for (i, exp_i) in path.iter().enumerate() {

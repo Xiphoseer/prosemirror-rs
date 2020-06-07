@@ -1,10 +1,14 @@
-use super::{Fragment, Node};
+use super::{Fragment, Node, Schema};
 use std::borrow::Cow;
 
+/// Errors at `resolve`
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ResolveErr {
     /// Position {pos} out of range
-    RangeError { pos: usize },
+    RangeError {
+        /// The position that was out of range
+        pos: usize,
+    },
     /// Broken Invariant
     BrokenInvariant,
 }
@@ -15,16 +19,23 @@ impl From<()> for ResolveErr {
     }
 }
 
+/// You can resolve a position to get more information about it. Objects of this class represent
+/// such a resolved position, providing various pieces of context information, and some helper
+/// methods.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResolvedPos<'a> {
+pub struct ResolvedPos<'a, S: Schema> {
     pub(crate) pos: usize,
-    pub(crate) path: Vec<(&'a Node, usize, usize)>,
+    pub(crate) path: Vec<(&'a S::Node, usize, usize)>,
     pub(crate) parent_offset: usize,
     pub(crate) depth: usize,
 }
 
-impl<'a> ResolvedPos<'a> {
-    pub fn new(pos: usize, path: Vec<(&'a Node, usize, usize)>, parent_offset: usize) -> Self {
+impl<'a, S: Schema> ResolvedPos<'a, S> {
+    pub(crate) fn new(
+        pos: usize,
+        path: Vec<(&'a S::Node, usize, usize)>,
+        parent_offset: usize,
+    ) -> Self {
         Self {
             depth: path.len() - 1,
             pos,
@@ -36,23 +47,27 @@ impl<'a> ResolvedPos<'a> {
     /// The parent node that the position points into. Note that even if
     /// a position points into a text node, that node is not considered
     /// the parent—text nodes are ‘flat’ in this model, and have no content.
-    pub fn parent(&self) -> &Node {
+    pub fn parent(&self) -> &S::Node {
         self.node(self.depth)
     }
 
     /// The root node in which the position was resolved.
-    pub fn doc(&self) -> &Node {
+    pub fn doc(&self) -> &S::Node {
         self.node(0)
     }
 
-    pub fn node(&self, depth: usize) -> &Node {
+    /// The ancestor node at the given level. `p.node(p.depth)` is the same as `p.parent()`.
+    pub fn node(&self, depth: usize) -> &S::Node {
         self.path[depth].0
     }
 
+    /// The index into the ancestor at the given level. If this points at the 3rd node in the
+    /// 2nd paragraph on the top level, for example, `p.index(0)` is 1 and `p.index(1)` is 2.
     pub fn index(&self, depth: usize) -> usize {
         self.path[depth].1
     }
 
+    /// The (absolute) position at the start of the node at the given level.
     pub fn start(&self, depth: usize) -> usize {
         if depth == 0 {
             0
@@ -61,10 +76,13 @@ impl<'a> ResolvedPos<'a> {
         }
     }
 
+    /// The (absolute) position at the end of the node at the given level.
     pub fn end(&self, depth: usize) -> usize {
         self.start(depth) + self.node(depth).content().map(Fragment::size).unwrap_or(0)
     }
 
+    /// The (absolute) position directly before the wrapping node at the given level, or, when
+    /// depth is `self.depth + 1`, the original position.
     pub fn before(&self, depth: usize) -> Option<usize> {
         if depth == 0 {
             None
@@ -75,6 +93,8 @@ impl<'a> ResolvedPos<'a> {
         }
     }
 
+    /// The (absolute) position directly after the wrapping node at the given level, or the
+    /// original position when depth is `self.depth + 1`.
     pub fn after(&self, depth: usize) -> Option<usize> {
         if depth == 0 {
             None
@@ -85,7 +105,9 @@ impl<'a> ResolvedPos<'a> {
         }
     }
 
-    pub fn node_before(&self) -> Option<Cow<Node>> {
+    /// Get the node directly before the position, if any. If the position points into a text node,
+    /// only the part of that node before the position is returned.
+    pub fn node_before(&self) -> Option<Cow<S::Node>> {
         let index = self.index(self.depth);
         let d_off = self.pos - self.path.last().unwrap().2;
         if d_off > 0 {
@@ -100,7 +122,9 @@ impl<'a> ResolvedPos<'a> {
         }
     }
 
-    pub fn node_after(&self) -> Option<Cow<Node>> {
+    /// Get the node directly after the position, if any. If the position points into a text node,
+    /// only the part of that node after the position is returned.
+    pub fn node_after(&self) -> Option<Cow<S::Node>> {
         let parent = self.parent();
         let index = self.index(self.depth);
         if index == parent.child_count() {
@@ -115,7 +139,7 @@ impl<'a> ResolvedPos<'a> {
         }
     }
 
-    pub fn resolve(doc: &'a Node, pos: usize) -> Result<Self, ResolveErr> {
+    pub(crate) fn resolve(doc: &'a S::Node, pos: usize) -> Result<Self, ResolveErr> {
         if pos > doc.content().unwrap().size() {
             return Err(ResolveErr::RangeError { pos });
         }
