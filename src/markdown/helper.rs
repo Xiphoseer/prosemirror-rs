@@ -41,6 +41,14 @@ pub fn em(content: &str) -> MarkdownNode {
     })
 }
 
+/// Create an emphasized text node.
+pub fn strong(content: &str) -> MarkdownNode {
+    MarkdownNode::Text(TextNode {
+        text: Text::from(content.to_string()),
+        marks: [MarkdownMark::Strong].iter().cloned().collect(),
+    })
+}
+
 /// Create a paragraph node.
 pub fn p<A: Into<Fragment>>(content: A) -> MarkdownNode {
     MarkdownNode::Paragraph(Block {
