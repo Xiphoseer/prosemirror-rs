@@ -1,9 +1,11 @@
 use crate::model::{Fragment, Schema};
+use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
 /// A slice of a fragment
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Derivative, Deserialize, Serialize)]
+#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[serde(bound = "", rename_all = "camelCase")]
 pub struct Slice<S: Schema> {
     /// The slice's content.
     pub content: Fragment<S>,

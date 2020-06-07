@@ -1,4 +1,5 @@
 use super::{Fragment, Node, Schema};
+use derivative::Derivative;
 use std::borrow::Cow;
 
 /// Errors at `resolve`
@@ -22,7 +23,13 @@ impl From<()> for ResolveErr {
 /// You can resolve a position to get more information about it. Objects of this class represent
 /// such a resolved position, providing various pieces of context information, and some helper
 /// methods.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Derivative)]
+#[derivative(
+    Debug(bound = ""),
+    Clone(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = "")
+)]
 pub struct ResolvedPos<'a, S: Schema> {
     pub(crate) pos: usize,
     pub(crate) path: Vec<(&'a S::Node, usize, usize)>,

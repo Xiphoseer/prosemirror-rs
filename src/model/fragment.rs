@@ -45,10 +45,9 @@ impl<S: Schema> Fragment<S> {
                 let end = pos + child.node_size();
                 if end > from {
                     let new_child = if pos < from || end > to {
-                        if let Some((text, _)) = child.text_node() {
-                            child.cut(
-                                usize::max(0, from - pos)..usize::min(text.len_utf16(), to - pos),
-                            )
+                        if let Some(node) = child.text_node() {
+                            let len = node.text.len_utf16();
+                            child.cut(usize::max(0, from - pos)..usize::min(len, to - pos))
                         } else {
                             child.cut(
                                 usize::max(0, from - pos - 1)
@@ -115,7 +114,8 @@ impl<S: Schema> Fragment<S> {
             from,
             to,
             &mut move |node, pos| {
-                if let Some((txt, _)) = node.text_node() {
+                if let Some(txt_node) = node.text_node() {
+                    let txt = &txt_node.text;
                     let (rest, skip) = if from > pos {
                         let skip = from - pos;
                         (util::split_at_utf16(txt.as_str(), skip).1, skip)

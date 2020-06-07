@@ -15,13 +15,13 @@ pub use marks::{Mark, MarkSet};
 pub use node::{Node, Text};
 pub(crate) use resolved_pos::Index;
 pub use resolved_pos::{ResolveErr, ResolvedPos};
-pub use schema::{Block, Schema};
+pub use schema::{AttrNode, Block, Leaf, Schema, TextNode};
 pub use slice::Slice;
 
 #[cfg(test)]
 mod tests {
     use super::{Index, Node, ResolvedPos};
-    use crate::markdown::{helper::*, ImageAttrs, MarkdownNode, MarkdownSchema as Schema};
+    use crate::markdown::{helper::*, ImageAttrs, MarkdownNode, MD};
     use std::ops::Deref;
 
     #[test]
@@ -64,7 +64,7 @@ mod tests {
         assert_eq!(ct_3.find_index(9, false), Err(()));
 
         assert_eq!(
-            ResolvedPos::<Schema>::resolve(&test_3, 0),
+            ResolvedPos::<MD>::resolve(&test_3, 0),
             Ok(ResolvedPos::new(0, vec![(&test_3, 0, 0)], 0))
         );
     }
@@ -126,7 +126,7 @@ mod tests {
         ];
 
         for (pos, (path, parent_offset, before, after)) in expected.iter().enumerate() {
-            let pos = ResolvedPos::<Schema>::resolve(&test_doc, pos).unwrap();
+            let pos = ResolvedPos::<MD>::resolve(&test_doc, pos).unwrap();
             assert_eq!(pos.depth, path.len() - 1);
 
             for (i, exp_i) in path.iter().enumerate() {

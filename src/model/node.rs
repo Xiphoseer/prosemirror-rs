@@ -1,4 +1,4 @@
-use super::{util, Fragment, MarkSet, ResolveErr, ResolvedPos, Schema};
+use super::{util, Fragment, ResolveErr, ResolvedPos, Schema, TextNode};
 use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
 use std::fmt::Debug;
@@ -7,13 +7,13 @@ use std::ops::RangeBounds;
 /// This class represents a node in the tree that makes up a ProseMirror document. So a document is
 /// an instance of Node, with children that are also instances of Node.
 pub trait Node<S: Schema<Node = Self> + 'static>:
-    Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq + Eq
+    Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq + Eq + Sized
 {
     /// Create a copy of this node with only the content between the given positions.
     fn cut<R: RangeBounds<usize>>(&self, range: R) -> Cow<Self> {
         let from = util::from(&range);
 
-        if let Some((text, marks)) = self.text_node() {
+        if let Some(TextNode { text, marks }) = self.text_node() {
             let len = text.len_utf16;
             let to = util::to(&range, len);
 
@@ -23,10 +23,10 @@ pub trait Node<S: Schema<Node = Self> + 'static>:
             let (_, rest) = util::split_at_utf16(&text.content, from);
             let (rest, _) = util::split_at_utf16(rest, to - from);
 
-            Cow::Owned(Self::new_text_node(
-                Text::from(rest.to_owned()),
-                marks.clone(),
-            ))
+            Cow::Owned(Self::new_text_node(TextNode {
+                text: Text::from(rest.to_owned()),
+                marks: marks.clone(),
+            }))
         } else {
             let content_size = self.content_size();
             let to = util::to(&range, content_size);
@@ -53,8 +53,8 @@ pub trait Node<S: Schema<Node = Self> + 'static>:
 
     /// Concatenates all the text nodes found in this fragment and its children.
     fn text_content(&self) -> String {
-        if let Some((text, _)) = self.text_node() {
-            text.content.clone()
+        if let Some(node) = self.text_node() {
+            node.text.content.clone()
         } else {
             let mut buf = String::new();
             if let Some(c) = self.content() {
@@ -70,10 +70,10 @@ pub trait Node<S: Schema<Node = Self> + 'static>:
     }
 
     /// Get the text and marks if this is a text node
-    fn text_node(&self) -> Option<(&Text, &MarkSet<S>)>;
+    fn text_node(&self) -> Option<&TextNode<S>>;
 
     /// Create a new text node
-    fn new_text_node(text: Text, marks: MarkSet<S>) -> Self;
+    fn new_text_node(node: TextNode<S>) -> Self;
 
     /// Creates a new text node
     fn text<A: Into<String>>(text: A) -> Self;
@@ -111,8 +111,8 @@ pub trait Node<S: Schema<Node = Self> + 'static>:
         match self.content() {
             Some(c) => c.size() + 2,
             None => {
-                if let Some((text, _)) = self.text_node() {
-                    text.len_utf16
+                if let Some(node) = self.text_node() {
+                    node.text.len_utf16
                 } else {
                     1
                 }
@@ -122,7 +122,7 @@ pub trait Node<S: Schema<Node = Self> + 'static>:
 }
 
 /// A string that stores its length in utf-16
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(from = "String")]
 pub struct Text {
     len_utf16: usize,

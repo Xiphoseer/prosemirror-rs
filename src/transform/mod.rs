@@ -5,6 +5,7 @@ mod util;
 pub use util::Span;
 
 use crate::model::{Schema, Slice};
+use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
 /// A list of steps
@@ -12,8 +13,9 @@ use serde::{Deserialize, Serialize};
 pub type Steps<S: Schema> = Vec<Step<S>>;
 
 /// Steps that can be applied on a document
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(tag = "stepType", rename_all = "camelCase")]
+#[derive(Derivative, Deserialize, Serialize)]
+#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[serde(bound = "", tag = "stepType", rename_all = "camelCase")]
 pub enum Step<S: Schema> {
     /// Replace some content
     Replace(ReplaceStep<S>),
@@ -26,8 +28,9 @@ pub enum Step<S: Schema> {
 }
 
 /// Replace some part of the document
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Derivative, Deserialize, Serialize)]
+#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[serde(bound = "", rename_all = "camelCase")]
 pub struct ReplaceStep<S: Schema> {
     /// The affected span
     #[serde(flatten)]
@@ -39,8 +42,9 @@ pub struct ReplaceStep<S: Schema> {
 }
 
 /// Replace the document structure while keeping some content
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Derivative, Deserialize, Serialize)]
+#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[serde(bound = "", rename_all = "camelCase")]
 pub struct ReplaceAroundStep<S: Schema> {
     /// The affected part of the document
     #[serde(flatten)]
@@ -58,8 +62,9 @@ pub struct ReplaceAroundStep<S: Schema> {
 }
 
 /// Adding a mark on some part of the document
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Derivative, Deserialize, Serialize)]
+#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[serde(bound = "", rename_all = "camelCase")]
 pub struct AddMarkStep<S: Schema> {
     /// The affected part of the document
     #[serde(flatten)]
@@ -69,8 +74,9 @@ pub struct AddMarkStep<S: Schema> {
 }
 
 /// Removing a mark on some part of the document
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Derivative, Deserialize, Serialize)]
+#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[serde(bound = "", rename_all = "camelCase")]
 pub struct RemoveMarkStep<S: Schema> {
     /// The affected part of the document
     #[serde(flatten)]
@@ -82,12 +88,12 @@ pub struct RemoveMarkStep<S: Schema> {
 #[cfg(test)]
 mod tests {
     use super::{AddMarkStep, ReplaceStep, Span, Step};
-    use crate::markdown::{MarkdownMark, MarkdownNode, MarkdownSchema as Schema};
+    use crate::markdown::{MarkdownMark, MarkdownNode, MD};
     use crate::model::{Fragment, Node, Slice};
 
     #[test]
     fn test_deserialize() {
-        let s1: Step<Schema> = serde_json::from_str(
+        let s1: Step<MD> = serde_json::from_str(
             r#"{"stepType":"addMark","mark":{"type":"em"},"from":61,"to":648}"#,
         )
         .unwrap();
@@ -100,7 +106,7 @@ mod tests {
             })
         );
 
-        let s2: Step<Schema> = serde_json::from_str(
+        let s2: Step<MD> = serde_json::from_str(
             r#"{"stepType":"replace","from":986,"to":986,"slice":{"content":[{"type":"text","text":"!"}]}}"#
         ).unwrap();
 

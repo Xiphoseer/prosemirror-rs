@@ -3,11 +3,10 @@
 //! This module contains some functions to create nodes programmatically.
 //!
 //! See also: <https://github.com/prosemirror/prosemirror-test-builder>
-use super::{CodeBlockAttrs, HeadingAttrs, MarkdownMark, MarkdownNode, MarkdownSchema};
-use crate::model::{self, Block, Text};
+use super::{CodeBlockAttrs, HeadingAttrs, MarkdownMark, MarkdownNode, MD};
+use crate::model::{self, AttrNode, Block, Text, TextNode};
 
-type Schema = MarkdownSchema;
-type Fragment = model::Fragment<Schema>;
+type Fragment = model::Fragment<MD>;
 
 /// Create a document node.
 pub fn doc<A: Into<Fragment>>(content: A) -> MarkdownNode {
@@ -18,10 +17,10 @@ pub fn doc<A: Into<Fragment>>(content: A) -> MarkdownNode {
 
 /// Create a heading node.
 pub fn h<A: Into<Fragment>>(level: u8, content: A) -> MarkdownNode {
-    MarkdownNode::Heading {
+    MarkdownNode::Heading(AttrNode {
         attrs: HeadingAttrs { level },
         content: content.into(),
-    }
+    })
 }
 
 /// Create a heading (level 1) node.
@@ -36,10 +35,10 @@ pub fn h2<A: Into<Fragment>>(content: A) -> MarkdownNode {
 
 /// Create an emphasized text node.
 pub fn em(content: &str) -> MarkdownNode {
-    MarkdownNode::Text {
+    MarkdownNode::Text(TextNode {
         text: Text::from(content.to_string()),
         marks: [MarkdownMark::Em].iter().cloned().collect(),
-    }
+    })
 }
 
 /// Create a paragraph node.
@@ -51,12 +50,12 @@ pub fn p<A: Into<Fragment>>(content: A) -> MarkdownNode {
 
 /// Create a code block node.
 pub fn code_block<A: Into<Fragment>>(params: &str, content: A) -> MarkdownNode {
-    MarkdownNode::CodeBlock {
+    MarkdownNode::CodeBlock(AttrNode {
         attrs: CodeBlockAttrs {
             params: params.to_owned(),
         },
         content: content.into(),
-    }
+    })
 }
 
 /// Create a blockquote node.

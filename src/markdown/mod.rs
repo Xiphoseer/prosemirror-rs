@@ -5,100 +5,63 @@
 mod attrs;
 pub mod helper;
 
-use crate::model::{Block, Fragment, Mark, MarkSet, Node, Schema, Text};
+use crate::model::{AttrNode, Block, Fragment, Leaf, Mark, MarkSet, Node, Schema, Text, TextNode};
 pub use attrs::{
     BulletListAttrs, CodeBlockAttrs, HeadingAttrs, ImageAttrs, LinkAttrs, OrderedListAttrs,
 };
+use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
 /// The markdown schema type
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MarkdownSchema;
+pub struct MD;
 
-impl Schema for MarkdownSchema {
+impl Schema for MD {
     type Node = MarkdownNode;
     type Mark = MarkdownMark;
 }
 
 /// The node type for the markdown schema
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Derivative, Deserialize, Serialize, PartialEq, Eq)]
+#[derivative(Clone(bound = ""))]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum MarkdownNode {
     /// The document root
-    Doc(Block<MarkdownSchema>),
+    Doc(Block<MD>),
     /// A heading, e.g. `<h1>`
-    Heading {
-        /// Attributes
-        attrs: HeadingAttrs,
-        /// The content.
-        #[serde(default)]
-        content: Fragment<MarkdownSchema>,
-    },
+    Heading(AttrNode<MD, HeadingAttrs>),
     /// A code block
-    CodeBlock {
-        /// Attributes
-        attrs: CodeBlockAttrs,
-        /// The content.
-        #[serde(default)]
-        content: Fragment<MarkdownSchema>,
-    },
+    CodeBlock(AttrNode<MD, CodeBlockAttrs>),
     /// A text node
-    Text {
-        // todo: replace with typemap
-        /// Marks on this node
-        #[serde(default)]
-        marks: MarkSet<MarkdownSchema>,
-        /// The actual text
-        text: Text,
-    },
+    Text(TextNode<MD>),
     /// A blockquote
-    Blockquote(Block<MarkdownSchema>),
+    Blockquote(Block<MD>),
     /// A paragraph
-    Paragraph(Block<MarkdownSchema>),
+    Paragraph(Block<MD>),
     /// A bullet list
-    BulletList {
-        /// The content.
-        #[serde(default)]
-        content: Fragment<MarkdownSchema>,
-        /// Attributes.
-        attrs: BulletListAttrs,
-    },
+    BulletList(AttrNode<MD, BulletListAttrs>),
     /// An ordered list
-    OrderedList {
-        /// The content.
-        #[serde(default)]
-        content: Fragment<MarkdownSchema>,
-        /// Attributes
-        attrs: OrderedListAttrs,
-    },
+    OrderedList(AttrNode<MD, OrderedListAttrs>),
     /// A list item
-    ListItem {
-        /// The content.
-        #[serde(default)]
-        content: Fragment<MarkdownSchema>,
-    },
+    ListItem(Block<MD>),
     /// A horizontal line `<hr>`
     HorizontalRule,
     /// A hard break `<br>`
     HardBreak,
     /// An image `<img>`
-    Image {
-        /// Attributes
-        attrs: ImageAttrs,
-    },
+    Image(Leaf<ImageAttrs>),
 }
 
-impl Node<MarkdownSchema> for MarkdownNode {
-    fn text_node(&self) -> Option<(&Text, &MarkSet<MarkdownSchema>)> {
-        if let Self::Text { text, marks } = self {
-            Some((text, marks))
+impl Node<MD> for MarkdownNode {
+    fn text_node(&self) -> Option<&TextNode<MD>> {
+        if let Self::Text(node) = self {
+            Some(node)
         } else {
             None
         }
     }
 
-    fn new_text_node(text: Text, marks: MarkSet<MarkdownSchema>) -> Self {
-        Self::Text { text, marks }
+    fn new_text_node(node: TextNode<MD>) -> Self {
+        Self::Text(node)
     }
 
     fn is_block(&self) -> bool {
@@ -119,23 +82,23 @@ impl Node<MarkdownSchema> for MarkdownNode {
     }
 
     fn text<A: Into<String>>(text: A) -> Self {
-        Self::Text {
+        Self::Text(TextNode {
             text: Text::from(text.into()),
-            marks: MarkSet::<MarkdownSchema>::new(),
-        }
+            marks: MarkSet::<MD>::new(),
+        })
     }
 
-    fn content(&self) -> Option<&Fragment<MarkdownSchema>> {
+    fn content(&self) -> Option<&Fragment<MD>> {
         match self {
             Self::Doc(doc) => Some(&doc.content),
-            Self::Heading { content, .. } => Some(content),
-            Self::CodeBlock { content, .. } => Some(content),
+            Self::Heading(AttrNode { content, .. }) => Some(content),
+            Self::CodeBlock(AttrNode { content, .. }) => Some(content),
             Self::Text { .. } => None,
             Self::Blockquote(Block { content }) => Some(content),
             Self::Paragraph(Block { content }) => Some(content),
-            Self::BulletList { content, .. } => Some(content),
-            Self::OrderedList { content, .. } => Some(content),
-            Self::ListItem { content } => Some(content),
+            Self::BulletList(AttrNode { content, .. }) => Some(content),
+            Self::OrderedList(AttrNode { content, .. }) => Some(content),
+            Self::ListItem(Block { content }) => Some(content),
             Self::HorizontalRule => None,
             Self::HardBreak => None,
             Self::Image { .. } => None,
@@ -144,46 +107,21 @@ impl Node<MarkdownSchema> for MarkdownNode {
 
     fn copy<F>(&self, map: F) -> Self
     where
-        F: FnOnce(&Fragment<MarkdownSchema>) -> Fragment<MarkdownSchema>,
+        F: FnOnce(&Fragment<MD>) -> Fragment<MD>,
     {
         match self {
-            Self::Doc(Block { content }) => Self::Doc(Block {
-                content: map(content),
-            }),
-            Self::Heading { attrs, content } => Self::Heading {
-                attrs: attrs.clone(),
-                content: map(content),
-            },
-            Self::CodeBlock { attrs, content } => Self::CodeBlock {
-                attrs: attrs.clone(),
-                content: map(content),
-            },
-            Self::Text { text, marks } => Self::Text {
-                text: text.clone(),
-                marks: marks.clone(),
-            },
-            Self::Blockquote(Block { content }) => Self::Blockquote(Block {
-                content: map(content),
-            }),
-            Self::Paragraph(Block { content }) => Self::Paragraph(Block {
-                content: map(content),
-            }),
-            Self::BulletList { attrs, content } => Self::BulletList {
-                attrs: attrs.clone(),
-                content: map(content),
-            },
-            Self::OrderedList { attrs, content } => Self::OrderedList {
-                attrs: attrs.clone(),
-                content: map(content),
-            },
-            Self::ListItem { content } => Self::ListItem {
-                content: map(content),
-            },
+            Self::Doc(block) => Self::Doc(block.copy(map)),
+            Self::Heading(node) => Self::Heading(node.copy(map)),
+            Self::CodeBlock(node) => Self::CodeBlock(node.copy(map)),
+            Self::Text(node) => Self::Text(node.clone()),
+            Self::Blockquote(block) => Self::Blockquote(block.copy(map)),
+            Self::Paragraph(block) => Self::Paragraph(block.copy(map)),
+            Self::BulletList(node) => Self::BulletList(node.copy(map)),
+            Self::OrderedList(node) => Self::OrderedList(node.copy(map)),
+            Self::ListItem(block) => Self::ListItem(block.copy(map)),
             Self::HorizontalRule => Self::HorizontalRule,
             Self::HardBreak => Self::HardBreak,
-            Self::Image { attrs } => Self::Image {
-                attrs: attrs.clone(),
-            },
+            Self::Image(img) => Self::Image(img.clone()),
         }
     }
 }
