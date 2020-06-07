@@ -1,4 +1,5 @@
 use super::{util, Index, Node, Schema};
+use derivative::Derivative;
 use serde::{Deserialize, Serialize, Serializer};
 use std::ops::RangeBounds;
 
@@ -6,7 +7,8 @@ use std::ops::RangeBounds;
 
 /// Like nodes, fragments are persistent data structures, and you should not mutate them or their
 /// content. Rather, you create new instances whenever needed. The API tries to make this easy.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Derivative, Deserialize, Eq)]
+#[derivative(Debug(bound = ""), Clone(bound = ""), PartialEq(bound = ""))]
 #[serde(from = "Vec<S::Node>")]
 pub struct Fragment<S: Schema> {
     inner: Vec<S::Node>,

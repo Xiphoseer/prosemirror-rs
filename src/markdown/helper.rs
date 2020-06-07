@@ -44,9 +44,9 @@ pub fn em(content: &str) -> MarkdownNode {
 
 /// Create a paragraph node.
 pub fn p<A: Into<Fragment>>(content: A) -> MarkdownNode {
-    MarkdownNode::Paragraph {
+    MarkdownNode::Paragraph(Block {
         content: content.into(),
-    }
+    })
 }
 
 /// Create a code block node.
@@ -61,9 +61,9 @@ pub fn code_block<A: Into<Fragment>>(params: &str, content: A) -> MarkdownNode {
 
 /// Create a blockquote node.
 pub fn blockquote<A: Into<Fragment>>(content: A) -> MarkdownNode {
-    MarkdownNode::Blockquote {
+    MarkdownNode::Blockquote(Block {
         content: content.into(),
-    }
+    })
 }
 
 /// Create a node.

@@ -52,17 +52,9 @@ pub enum MarkdownNode {
         text: Text,
     },
     /// A blockquote
-    Blockquote {
-        /// The content.
-        #[serde(default)]
-        content: Fragment<MarkdownSchema>,
-    },
+    Blockquote(Block<MarkdownSchema>),
     /// A paragraph
-    Paragraph {
-        /// The content
-        #[serde(default)]
-        content: Fragment<MarkdownSchema>,
-    },
+    Paragraph(Block<MarkdownSchema>),
     /// A bullet list
     BulletList {
         /// The content.
@@ -139,8 +131,8 @@ impl Node<MarkdownSchema> for MarkdownNode {
             Self::Heading { content, .. } => Some(content),
             Self::CodeBlock { content, .. } => Some(content),
             Self::Text { .. } => None,
-            Self::Blockquote { content } => Some(content),
-            Self::Paragraph { content } => Some(content),
+            Self::Blockquote(Block { content }) => Some(content),
+            Self::Paragraph(Block { content }) => Some(content),
             Self::BulletList { content, .. } => Some(content),
             Self::OrderedList { content, .. } => Some(content),
             Self::ListItem { content } => Some(content),
@@ -170,12 +162,12 @@ impl Node<MarkdownSchema> for MarkdownNode {
                 text: text.clone(),
                 marks: marks.clone(),
             },
-            Self::Blockquote { content } => Self::Blockquote {
+            Self::Blockquote(Block { content }) => Self::Blockquote(Block {
                 content: map(content),
-            },
-            Self::Paragraph { content } => Self::Paragraph {
+            }),
+            Self::Paragraph(Block { content }) => Self::Paragraph(Block {
                 content: map(content),
-            },
+            }),
             Self::BulletList { attrs, content } => Self::BulletList {
                 attrs: attrs.clone(),
                 content: map(content),

@@ -1,4 +1,5 @@
 use super::{Fragment, Mark, Node};
+use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
 /// This type represents a schema.
@@ -10,9 +11,18 @@ pub trait Schema: Clone + 'static {
 }
 
 /// A simple block node
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Derivative, Deserialize, Serialize)]
+#[derivative(
+    Debug(bound = ""),
+    Clone(bound = ""),
+    Default(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = "")
+)]
+#[serde(bound = "")]
 pub struct Block<S: Schema> {
     /// The content.
     #[serde(default)]
+    #[derivative(Debug(bound = ""))]
     pub content: Fragment<S>,
 }
