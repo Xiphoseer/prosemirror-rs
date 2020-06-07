@@ -6,10 +6,9 @@ use std::ops::RangeBounds;
 
 /// This class represents a node in the tree that makes up a ProseMirror document. So a document is
 /// an instance of Node, with children that are also instances of Node.
-pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq + Eq {
-    /// The schema that this node type belongs to
-    type Schema: Schema<Node = Self>;
-
+pub trait Node<S: Schema<Node = Self> + 'static>:
+    Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq + Eq
+{
     /// Create a copy of this node with only the content between the given positions.
     fn cut<R: RangeBounds<usize>>(&self, range: R) -> Cow<Self> {
         let from = util::from(&range);
@@ -42,7 +41,7 @@ pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialE
 
     /// Resolve the given position in the document, returning a struct with information about its
     /// context.
-    fn resolve(&self, pos: usize) -> Result<ResolvedPos<Self::Schema>, ResolveErr> {
+    fn resolve(&self, pos: usize) -> Result<ResolvedPos<S>, ResolveErr> {
         ResolvedPos::resolve(self, pos)
     }
 
@@ -50,7 +49,7 @@ pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialE
     /// empty, if no content is given).
     fn copy<F>(&self, map: F) -> Self
     where
-        F: FnOnce(&Fragment<Self::Schema>) -> Fragment<Self::Schema>;
+        F: FnOnce(&Fragment<S>) -> Fragment<S>;
 
     /// Concatenates all the text nodes found in this fragment and its children.
     fn text_content(&self) -> String {
@@ -71,16 +70,16 @@ pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialE
     }
 
     /// Get the text and marks if this is a text node
-    fn text_node(&self) -> Option<(&Text, &MarkSet<Self::Schema>)>;
+    fn text_node(&self) -> Option<(&Text, &MarkSet<S>)>;
 
     /// Create a new text node
-    fn new_text_node(text: Text, marks: MarkSet<Self::Schema>) -> Self;
+    fn new_text_node(text: Text, marks: MarkSet<S>) -> Self;
 
     /// Creates a new text node
     fn text<A: Into<String>>(text: A) -> Self;
 
     /// A container holding the node's children.
-    fn content(&self) -> Option<&Fragment<Self::Schema>>;
+    fn content(&self) -> Option<&Fragment<S>>;
 
     /// Get the child node at the given index. Raises an error when the index is out of range.
     fn child(&self, index: usize) -> Option<&Self> {

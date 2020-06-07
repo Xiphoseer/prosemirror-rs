@@ -15,43 +15,14 @@ pub use marks::{Mark, MarkSet};
 pub use node::{Node, Text};
 pub(crate) use resolved_pos::Index;
 pub use resolved_pos::{ResolveErr, ResolvedPos};
-pub use schema::Schema;
+pub use schema::{Block, Schema};
 pub use slice::Slice;
 
 #[cfg(test)]
 mod tests {
-    use super::{Fragment, Index, Node, ResolvedPos, Text};
-    use crate::markdown::{ImageAttrs, MarkdownMark, MarkdownNode, MarkdownSchema as Schema};
+    use super::{Index, Node, ResolvedPos};
+    use crate::markdown::{helper::*, ImageAttrs, MarkdownNode, MarkdownSchema as Schema};
     use std::ops::Deref;
-
-    fn doc<A: Into<Fragment<Schema>>>(content: A) -> MarkdownNode {
-        MarkdownNode::Doc {
-            content: content.into(),
-        }
-    }
-
-    fn em(content: &str) -> MarkdownNode {
-        MarkdownNode::Text {
-            text: Text::from(content.to_string()),
-            marks: [MarkdownMark::Em].iter().cloned().collect(),
-        }
-    }
-
-    fn p<A: Into<Fragment<Schema>>>(content: A) -> MarkdownNode {
-        MarkdownNode::Paragraph {
-            content: content.into(),
-        }
-    }
-
-    fn blockquote<A: Into<Fragment<Schema>>>(content: A) -> MarkdownNode {
-        MarkdownNode::Blockquote {
-            content: content.into(),
-        }
-    }
-
-    fn node<A: Into<MarkdownNode>>(src: A) -> MarkdownNode {
-        src.into()
-    }
 
     #[test]
     fn test_null_string() {

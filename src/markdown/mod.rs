@@ -3,15 +3,16 @@
 //! This module is derived from the `prosemirror-markdown` schema and the
 //! the general JSON serialization of nodes.
 mod attrs;
+pub mod helper;
 
-use crate::model::{Fragment, Mark, MarkSet, Node, Schema, Text};
+use crate::model::{Block, Fragment, Mark, MarkSet, Node, Schema, Text};
 pub use attrs::{
     BulletListAttrs, CodeBlockAttrs, HeadingAttrs, ImageAttrs, LinkAttrs, OrderedListAttrs,
 };
 use serde::{Deserialize, Serialize};
 
 /// The markdown schema type
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MarkdownSchema;
 
 impl Schema for MarkdownSchema {
@@ -24,11 +25,7 @@ impl Schema for MarkdownSchema {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum MarkdownNode {
     /// The document root
-    Doc {
-        /// The content
-        #[serde(default)]
-        content: Fragment<MarkdownSchema>,
-    },
+    Doc(Block<MarkdownSchema>),
     /// A heading, e.g. `<h1>`
     Heading {
         /// Attributes
@@ -99,10 +96,8 @@ pub enum MarkdownNode {
     },
 }
 
-impl Node for MarkdownNode {
-    type Schema = MarkdownSchema;
-
-    fn text_node(&self) -> Option<(&Text, &MarkSet<Self::Schema>)> {
+impl Node<MarkdownSchema> for MarkdownNode {
+    fn text_node(&self) -> Option<(&Text, &MarkSet<MarkdownSchema>)> {
         if let Self::Text { text, marks } = self {
             Some((text, marks))
         } else {
@@ -110,7 +105,7 @@ impl Node for MarkdownNode {
         }
     }
 
-    fn new_text_node(text: Text, marks: MarkSet<Self::Schema>) -> Self {
+    fn new_text_node(text: Text, marks: MarkSet<MarkdownSchema>) -> Self {
         Self::Text { text, marks }
     }
 
@@ -140,7 +135,7 @@ impl Node for MarkdownNode {
 
     fn content(&self) -> Option<&Fragment<MarkdownSchema>> {
         match self {
-            Self::Doc { content } => Some(content),
+            Self::Doc(doc) => Some(&doc.content),
             Self::Heading { content, .. } => Some(content),
             Self::CodeBlock { content, .. } => Some(content),
             Self::Text { .. } => None,
@@ -160,9 +155,9 @@ impl Node for MarkdownNode {
         F: FnOnce(&Fragment<MarkdownSchema>) -> Fragment<MarkdownSchema>,
     {
         match self {
-            Self::Doc { content } => Self::Doc {
+            Self::Doc(Block { content }) => Self::Doc(Block {
                 content: map(content),
-            },
+            }),
             Self::Heading { attrs, content } => Self::Heading {
                 attrs: attrs.clone(),
                 content: map(content),

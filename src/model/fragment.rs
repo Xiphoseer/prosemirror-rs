@@ -224,9 +224,9 @@ where
     }
 }
 
-impl<N, S, A> From<(A,)> for Fragment<S>
+impl<N, S: 'static, A> From<(A,)> for Fragment<S>
 where
-    N: Node,
+    N: Node<S>,
     S: Schema<Node = N>,
     A: Into<N>,
 {
