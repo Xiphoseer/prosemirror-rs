@@ -1,0 +1,83 @@
+use super::{Span, StepError, StepKind, StepResult};
+use crate::model::{Node, ResolveErr, Schema, Slice};
+use derivative::Derivative;
+use serde::{Deserialize, Serialize};
+
+/// Replace some part of the document
+#[derive(Derivative, Deserialize, Serialize)]
+#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[serde(bound = "", rename_all = "camelCase")]
+pub struct ReplaceStep<S: Schema> {
+    /// The affected span
+    #[serde(flatten)]
+    pub span: Span,
+    /// The slice to replace the current content with
+    #[serde(default)]
+    pub slice: Slice<S>,
+    /// Whether this is a structural change
+    #[serde(default)]
+    pub structure: bool,
+}
+
+impl<S: Schema> StepKind<S> for ReplaceStep<S> {
+    fn apply(&self, doc: &S::Node) -> StepResult<S> {
+        let from = self.span.from;
+        let to = self.span.to;
+        if self.structure && content_between::<S>(doc, from, to)? {
+            Err(StepError::WouldOverwrite)
+        } else {
+            let node = doc.replace(from..=to, &self.slice)?;
+            Ok(node)
+        }
+    }
+}
+
+/// Replace the document structure while keeping some content
+#[derive(Derivative, Deserialize, Serialize)]
+#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[serde(bound = "", rename_all = "camelCase")]
+pub struct ReplaceAroundStep<S: Schema> {
+    /// The affected part of the document
+    #[serde(flatten)]
+    pub span: Span,
+    /// Start of the gap
+    pub gap_from: usize,
+    /// End of the gap
+    pub gap_to: usize,
+    /// The inner slice
+    pub slice: Option<Slice<S>>,
+    /// ???
+    pub insert: usize,
+    /// Whether this is a structural change
+    #[serde(default)]
+    pub structure: bool,
+}
+
+fn content_between<S: Schema>(doc: &S::Node, from: usize, to: usize) -> Result<bool, ResolveErr> {
+    let rp_from = doc.resolve(from)?;
+    let mut dist = to - from;
+    let mut depth = rp_from.depth;
+    while dist > 0 && depth > 0 && rp_from.index_after(depth) == rp_from.node(depth).child_count() {
+        depth -= 1;
+        dist -= 1;
+    }
+    if dist > 0 {
+        let mut next = rp_from.node(depth).maybe_child(rp_from.index_after(depth));
+        while dist > 0 {
+            match next {
+                Some(c) => {
+                    if c.is_leaf() {
+                        return Ok(true);
+                    } else {
+                        next = c.first_child();
+                        dist -= 1;
+                    }
+                }
+                None => {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+    Ok(false)
+}

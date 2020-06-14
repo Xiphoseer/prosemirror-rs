@@ -1,9 +1,12 @@
 use super::{Fragment, Node, Schema};
 use derivative::Derivative;
+use displaydoc::Display;
 use std::borrow::Cow;
+use std::fmt;
+use thiserror::Error;
 
 /// Errors at `resolve`
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Display, Error)]
 pub enum ResolveErr {
     /// Position {pos} out of range
     RangeError {
@@ -20,6 +23,28 @@ impl From<()> for ResolveErr {
     }
 }
 
+#[derive(Derivative, new)]
+#[derivative(Clone(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+/// A node in the resolution path
+pub struct ResolvedNode<'a, S: Schema> {
+    /// Reference to the node
+    pub node: &'a S::Node,
+    /// Index of the in the parent fragment
+    pub index: usize,
+    /// Offset immediately before the node
+    pub before: usize,
+}
+
+impl<'a, S: Schema> fmt::Debug for ResolvedNode<'a, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResolvedNode")
+            .field("node.type", &self.node.r#type())
+            .field("index", &self.index)
+            .field("before", &self.before)
+            .finish()
+    }
+}
+
 /// You can resolve a position to get more information about it. Objects of this class represent
 /// such a resolved position, providing various pieces of context information, and some helper
 /// methods.
@@ -32,17 +57,13 @@ impl From<()> for ResolveErr {
 )]
 pub struct ResolvedPos<'a, S: Schema> {
     pub(crate) pos: usize,
-    pub(crate) path: Vec<(&'a S::Node, usize, usize)>,
+    path: Vec<ResolvedNode<'a, S>>,
     pub(crate) parent_offset: usize,
     pub(crate) depth: usize,
 }
 
 impl<'a, S: Schema> ResolvedPos<'a, S> {
-    pub(crate) fn new(
-        pos: usize,
-        path: Vec<(&'a S::Node, usize, usize)>,
-        parent_offset: usize,
-    ) -> Self {
+    pub(crate) fn new(pos: usize, path: Vec<ResolvedNode<'a, S>>, parent_offset: usize) -> Self {
         Self {
             depth: path.len() - 1,
             pos,
@@ -64,14 +85,24 @@ impl<'a, S: Schema> ResolvedPos<'a, S> {
     }
 
     /// The ancestor node at the given level. `p.node(p.depth)` is the same as `p.parent()`.
-    pub fn node(&self, depth: usize) -> &S::Node {
-        self.path[depth].0
+    pub fn node(&self, depth: usize) -> &'a S::Node {
+        self.path[depth].node
     }
 
     /// The index into the ancestor at the given level. If this points at the 3rd node in the
     /// 2nd paragraph on the top level, for example, `p.index(0)` is 1 and `p.index(1)` is 2.
     pub fn index(&self, depth: usize) -> usize {
-        self.path[depth].1
+        self.path[depth].index
+    }
+
+    /// The index pointing after this position into the ancestor at the given level.
+    pub fn index_after(&self, depth: usize) -> usize {
+        let index = self.index(depth);
+        if depth == self.depth && self.text_offset() == 0 {
+            index
+        } else {
+            index + 1
+        }
     }
 
     /// The (absolute) position at the start of the node at the given level.
@@ -79,7 +110,7 @@ impl<'a, S: Schema> ResolvedPos<'a, S> {
         if depth == 0 {
             0
         } else {
-            self.path[depth - 1].2 + 1
+            self.path[depth - 1].before + 1
         }
     }
 
@@ -96,7 +127,7 @@ impl<'a, S: Schema> ResolvedPos<'a, S> {
         } else if depth == self.depth + 1 {
             Some(self.pos)
         } else {
-            Some(self.path[depth - 1].2)
+            Some(self.path[depth - 1].before)
         }
     }
 
@@ -108,15 +139,22 @@ impl<'a, S: Schema> ResolvedPos<'a, S> {
         } else if depth == self.depth + 1 {
             Some(self.pos)
         } else {
-            Some(self.path[depth - 1].2 + self.path[depth].0.node_size())
+            Some(self.path[depth - 1].before + self.path[depth].node.node_size())
         }
+    }
+
+    /// When this position points into a text node, this returns the
+    /// distance between the position and the start of the text node.
+    /// Will be zero for positions that point between nodes.
+    pub fn text_offset(&self) -> usize {
+        self.pos - self.path.last().unwrap().before
     }
 
     /// Get the node directly before the position, if any. If the position points into a text node,
     /// only the part of that node before the position is returned.
     pub fn node_before(&self) -> Option<Cow<S::Node>> {
         let index = self.index(self.depth);
-        let d_off = self.pos - self.path.last().unwrap().2;
+        let d_off = self.pos - self.path.last().unwrap().before;
         if d_off > 0 {
             let parent = self.parent();
             let child = parent.child(index).unwrap();
@@ -137,13 +175,24 @@ impl<'a, S: Schema> ResolvedPos<'a, S> {
         if index == parent.child_count() {
             return None;
         }
-        let d_off = self.pos - self.path.last().unwrap().2;
+        let d_off = self.pos - self.path.last().unwrap().before;
         let child = parent.child(index).unwrap();
         if d_off > 0 {
             Some(child.cut(d_off..))
         } else {
             Some(Cow::Borrowed(child))
         }
+    }
+
+    /// The depth up to which this position and the given (non-resolved)
+    /// position share the same parent nodes.
+    pub fn shared_depth(&self, pos: usize) -> usize {
+        for depth in (1..=self.depth).rev() {
+            if self.start(depth) <= pos && self.end(depth) >= pos {
+                return depth;
+            }
+        }
+        return 0;
     }
 
     pub(crate) fn resolve(doc: &'a S::Node, pos: usize) -> Result<Self, ResolveErr> {
@@ -161,7 +210,11 @@ impl<'a, S: Schema> ResolvedPos<'a, S> {
                 .unwrap_or(&Fragment::default())
                 .find_index(parent_offset, false)?;
             let rem = parent_offset - offset;
-            path.push((node, index, start + offset));
+            path.push(ResolvedNode {
+                node,
+                index,
+                before: start + offset,
+            });
             if rem == 0 {
                 break;
             }

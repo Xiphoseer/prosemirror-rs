@@ -19,7 +19,7 @@ pub struct CodeBlockAttrs {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct BulletListAttrs {
     /// ???
-    tight: bool,
+    pub tight: bool,
 }
 
 /// Attributes for an ordered list

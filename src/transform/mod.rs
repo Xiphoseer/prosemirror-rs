@@ -1,10 +1,14 @@
 //! # The document transformations
 //!
+mod replace_step;
+mod step;
 mod util;
 
+pub use replace_step::{ReplaceAroundStep, ReplaceStep};
+pub use step::{StepError, StepKind, StepResult};
 pub use util::Span;
 
-use crate::model::{Schema, Slice};
+use crate::model::Schema;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
@@ -25,40 +29,6 @@ pub enum Step<S: Schema> {
     AddMark(AddMarkStep<S>),
     /// Remove a mark from a span
     RemoveMark(RemoveMarkStep<S>),
-}
-
-/// Replace some part of the document
-#[derive(Derivative, Deserialize, Serialize)]
-#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
-#[serde(bound = "", rename_all = "camelCase")]
-pub struct ReplaceStep<S: Schema> {
-    /// The affected span
-    #[serde(flatten)]
-    pub span: Span,
-    /// The slice to replace the current content with
-    pub slice: Option<Slice<S>>,
-    /// Whether this is a structural change
-    pub structure: Option<bool>,
-}
-
-/// Replace the document structure while keeping some content
-#[derive(Derivative, Deserialize, Serialize)]
-#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
-#[serde(bound = "", rename_all = "camelCase")]
-pub struct ReplaceAroundStep<S: Schema> {
-    /// The affected part of the document
-    #[serde(flatten)]
-    pub span: Span,
-    /// Start of the gap
-    pub gap_from: usize,
-    /// End of the gap
-    pub gap_to: usize,
-    /// The inner slice
-    pub slice: Option<Slice<S>>,
-    /// ???
-    pub insert: usize,
-    /// ???
-    pub structure: Option<bool>,
 }
 
 /// Adding a mark on some part of the document
@@ -114,12 +84,12 @@ mod tests {
             s2,
             Step::Replace(ReplaceStep {
                 span: Span { from: 986, to: 986 },
-                slice: Some(Slice {
+                slice: Slice {
                     content: Fragment::from((MarkdownNode::text("!"),)),
-                    open_start: None,
-                    open_end: None,
-                }),
-                structure: None,
+                    open_start: 0,
+                    open_end: 0,
+                },
+                structure: false,
             })
         );
     }

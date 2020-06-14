@@ -1,6 +1,7 @@
-use super::{util, Index, Node, Schema};
+use super::{util, Index, Node, Schema, Text};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize, Serializer};
+use std::borrow::Cow;
 use std::ops::RangeBounds;
 
 /// A fragment represents a node's collection of child nodes.
@@ -16,14 +17,66 @@ pub struct Fragment<S: Schema> {
 }
 
 impl<S: Schema> Fragment<S> {
+    /// An empty fragment
+    pub const EMPTY: Self = Fragment {
+        inner: Vec::new(),
+        size: 0,
+    };
+    /// Reference to an empty fragment
+    pub const EMPTY_REF: &'static Self = &Self::EMPTY;
+
+    /// Create a new empty fragment
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// The size of the fragment, which is the total of the size of its content nodes.
     pub fn size(&self) -> usize {
         self.size
     }
 
+    /// Get a slice to all child nodes
+    pub fn children(&self) -> &[S::Node] {
+        &self.inner[..]
+    }
+
+    /// The first child of the fragment wrapped in `Some`, or `None` if it is empty.
+    pub fn first_child(&self) -> Option<&S::Node> {
+        self.inner.first()
+    }
+
+    /// The last child of the fragment wrapped in `Some`, or `None` if it is empty.
+    pub fn last_child(&self) -> Option<&S::Node> {
+        self.inner.last()
+    }
+
     /// The number of child nodes in this fragment.
     pub fn child_count(&self) -> usize {
         self.inner.len()
+    }
+
+    /// Create a new fragment containing the combined content of this fragment and the other.
+    pub fn append(mut self, mut other: Self) -> Self {
+        if let Some(first) = other.first_child() {
+            if let Some(last) = self.inner.last_mut() {
+                if let Some(n1) = last.text_node() {
+                    if let Some(n2) = n1.same_markup(first) {
+                        let mid = n1
+                            .with_text(Text::from(n1.text.as_str().to_owned() + n2.text.as_str()));
+                        *last = S::Node::from(mid);
+                        other.inner.remove(0);
+                    }
+                }
+
+                self.inner.append(&mut other.inner);
+                self.size += other.size;
+                self
+            } else {
+                other
+            }
+        } else {
+            self
+        }
     }
 
     /// Cut out the sub-fragment between the two given positions.
@@ -47,19 +100,21 @@ impl<S: Schema> Fragment<S> {
                     let new_child = if pos < from || end > to {
                         if let Some(node) = child.text_node() {
                             let len = node.text.len_utf16();
-                            child.cut(usize::max(0, from - pos)..usize::min(len, to - pos))
+                            let start = if from > pos { from - pos } else { 0 };
+                            let end = usize::min(len, to - pos);
+                            child.cut(start..end)
                         } else {
-                            child.cut(
-                                usize::max(0, from - pos - 1)
-                                    ..usize::min(child.content_size(), to - pos - 1),
-                            )
+                            let t = pos + 1;
+                            let start = if from > t { from - t } else { 0 };
+                            let end = usize::min(child.content_size(), to - t);
+                            child.cut(start..end)
                         }
                         .into_owned()
                     } else {
                         child.clone()
                     };
+                    size += new_child.node_size();
                     result.push(new_child);
-                    size += child.node_size();
                 }
                 pos = end;
                 i += 1;
@@ -143,7 +198,30 @@ impl<S: Schema> Fragment<S> {
         )
     }
 
-    pub(crate) fn child(&self, index: usize) -> Option<&S::Node> {
+    /// Create a new fragment in which the node at the given index is replaced by the given node.
+    pub fn replace_child(&self, index: usize, node: S::Node) -> Cow<Self> {
+        let (before, rest) = self.inner.split_at(index);
+        let (current, after) = rest.split_first().unwrap();
+
+        if *current == node {
+            Cow::Borrowed(self)
+        } else {
+            let size = self.size + node.node_size() - current.node_size();
+            let mut copy = Vec::with_capacity(self.inner.capacity());
+            copy.extend_from_slice(before);
+            copy.push(node);
+            copy.extend_from_slice(after);
+            Cow::Owned(Fragment { inner: copy, size })
+        }
+    }
+
+    /// Get the child node at the given index. Panics when the index is out of range.
+    pub fn child(&self, index: usize) -> &S::Node {
+        &self.inner[index]
+    }
+
+    /// Get the child node at the given index, if it exists.
+    pub fn maybe_child(&self, index: usize) -> Option<&S::Node> {
         self.inner.get(index)
     }
 

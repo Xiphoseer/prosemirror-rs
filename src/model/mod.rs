@@ -5,23 +5,26 @@
 mod fragment;
 mod marks;
 mod node;
+mod replace;
 mod resolved_pos;
 mod schema;
-mod slice;
 pub(crate) mod util;
 
 pub use fragment::Fragment;
 pub use marks::{Mark, MarkSet};
-pub use node::{Node, Text};
-pub(crate) use resolved_pos::Index;
-pub use resolved_pos::{ResolveErr, ResolvedPos};
+pub use node::{Node, NodeType, SliceError, Text};
+pub use replace::{ReplaceError, Slice};
+pub use resolved_pos::{ResolveErr, ResolvedNode, ResolvedPos};
 pub use schema::{AttrNode, Block, Leaf, Schema, TextNode};
-pub use slice::Slice;
+
+pub(crate) use replace::replace;
+pub(crate) use resolved_pos::Index;
 
 #[cfg(test)]
 mod tests {
-    use super::{Index, Node, ResolvedPos};
+    use super::{Index, Node, ResolvedNode, ResolvedPos};
     use crate::markdown::{helper::*, ImageAttrs, MarkdownNode, MD};
+    use std::fmt::Debug;
     use std::ops::Deref;
 
     #[test]
@@ -65,7 +68,11 @@ mod tests {
 
         assert_eq!(
             ResolvedPos::<MD>::resolve(&test_3, 0),
-            Ok(ResolvedPos::new(0, vec![(&test_3, 0, 0)], 0))
+            Ok(ResolvedPos::new(
+                0,
+                vec![ResolvedNode::new(&test_3, 0, 0)],
+                0
+            ))
         );
     }
 

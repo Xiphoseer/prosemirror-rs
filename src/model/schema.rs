@@ -1,4 +1,4 @@
-use super::{Fragment, Mark, MarkSet, Node, Text};
+use super::{Fragment, Mark, MarkSet, Node, NodeType, Text};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -9,6 +9,8 @@ pub trait Schema: Sized + 'static {
     type Mark: Mark;
     /// This type represents any of the nodes that are valid in the schema.
     type Node: Node<Self>;
+    /// This type represents any of the node types that are valid in the schema.
+    type NodeType: NodeType<Self>;
 }
 
 /// A simple block node
@@ -90,6 +92,21 @@ pub struct TextNode<S: Schema> {
     pub marks: MarkSet<S>,
     /// The actual text
     pub text: Text,
+}
+
+impl<S: Schema> TextNode<S> {
+    /// Check whether the marks are identical
+    pub fn same_markup<'o>(&self, other: &'o S::Node) -> Option<&'o TextNode<S>> {
+        other.text_node().filter(|x| x.marks == self.marks)
+    }
+
+    /// Create a new `TextNode` with the given text
+    pub fn with_text<'o>(&self, text: Text) -> Self {
+        TextNode {
+            marks: self.marks.clone(),
+            text,
+        }
+    }
 }
 
 /// A leaf node (just attributes)

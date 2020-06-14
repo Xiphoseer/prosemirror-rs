@@ -3,10 +3,22 @@
 //! This module contains some functions to create nodes programmatically.
 //!
 //! See also: <https://github.com/prosemirror/prosemirror-test-builder>
-use super::{CodeBlockAttrs, HeadingAttrs, MarkdownMark, MarkdownNode, MD};
+use super::{BulletListAttrs, CodeBlockAttrs, HeadingAttrs, MarkdownMark, MarkdownNode, MD};
 use crate::model::{self, AttrNode, Block, Text, TextNode};
 
 type Fragment = model::Fragment<MD>;
+
+impl From<&str> for Fragment {
+    fn from(s: &str) -> Fragment {
+        Fragment::from(vec![MarkdownNode::from(s)])
+    }
+}
+
+impl From<MarkdownNode> for Fragment {
+    fn from(node: MarkdownNode) -> Fragment {
+        Fragment::from(vec![node])
+    }
+}
 
 /// Create a document node.
 pub fn doc<A: Into<Fragment>>(content: A) -> MarkdownNode {
@@ -52,6 +64,21 @@ pub fn strong(content: &str) -> MarkdownNode {
 /// Create a paragraph node.
 pub fn p<A: Into<Fragment>>(content: A) -> MarkdownNode {
     MarkdownNode::Paragraph(Block {
+        content: content.into(),
+    })
+}
+
+/// Create a list item node.
+pub fn li<A: Into<Fragment>>(content: A) -> MarkdownNode {
+    MarkdownNode::ListItem(Block {
+        content: content.into(),
+    })
+}
+
+/// Create a Bullet list node.
+pub fn ul<A: Into<Fragment>>(content: A) -> MarkdownNode {
+    MarkdownNode::BulletList(AttrNode {
+        attrs: BulletListAttrs { tight: false },
         content: content.into(),
     })
 }
