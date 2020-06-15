@@ -40,3 +40,11 @@ impl<T> EitherOrBoth<T, T> {
         }
     }
 }
+
+pub(crate) fn then_some<T>(b: bool, v: T) -> Option<T> {
+    if b {
+        Some(v)
+    } else {
+        None
+    }
+}

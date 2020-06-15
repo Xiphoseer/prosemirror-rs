@@ -1,4 +1,5 @@
-use crate::model::{Fragment, Node, NodeType, ResolveErr, ResolvedPos, Schema};
+use super::{fragment::IndexError, Index};
+use crate::model::{ContentMatchError, Fragment, Node, NodeType, ResolveErr, ResolvedPos, Schema};
 use crate::util::EitherOrBoth;
 use derivative::Derivative;
 use displaydoc::Display;
@@ -43,6 +44,63 @@ impl<S: Schema> Slice<S> {
             open_end,
         }
     }
+
+    pub(crate) fn insert_at(
+        &self,
+        pos: usize,
+        fragment: Fragment<S>,
+    ) -> Result<Option<Slice<S>>, InsertError> {
+        let content = insert_into(&self.content, pos + self.open_start, fragment, None)?;
+        Ok(content.map(|c| Slice::<S>::new(c, self.open_start, self.open_end)))
+    }
+}
+
+/// Error on insertion
+#[derive(Debug, Display, Error)]
+pub enum InsertError {
+    /// Index error
+    Index(#[from] IndexError),
+    /// Content match error
+    Content(#[from] ContentMatchError),
+}
+
+fn insert_into<S: Schema>(
+    content: &Fragment<S>,
+    dist: usize,
+    insert: Fragment<S>,
+    parent: Option<&S::Node>,
+) -> Result<Option<Fragment<S>>, InsertError> {
+    let Index { index, offset } = content.find_index(dist, false)?;
+    let child = content.maybe_child(index);
+    if offset == dist || matches!(child, Some(c) if c.is_text()) {
+        if let Some(p) = parent {
+            if !p.can_replace(index, index, Some(&insert), ..)? {
+                return Ok(None);
+            }
+        }
+
+        Ok(Some(
+            content
+                .cut(..dist)
+                .append(insert)
+                .append(content.cut(dist..)),
+        ))
+    } else {
+        let child = child.unwrap(); // supposed to be safe, because of offset != diff
+        let inner = insert_into(
+            child.content().unwrap_or(Fragment::EMPTY_REF),
+            dist - offset - 1,
+            insert,
+            None,
+        )?;
+        if let Some(i) = inner {
+            Ok(Some(
+                content.replace_child(index, child.copy(|_| i)).into_owned(),
+            ))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 /// An error that can occur when replacing a slice
@@ -78,7 +136,7 @@ pub enum ReplaceError<S: Schema> {
 pub(crate) fn replace<S: Schema>(
     rp_from: &ResolvedPos<S>,
     rp_to: &ResolvedPos<S>,
-    slice: &Slice<S>,
+    slice: &Slice<S>, // FIXME: use Cow?
 ) -> Result<S::Node, ReplaceError<S>> {
     if slice.open_start > rp_from.depth {
         Err(ReplaceError::InsertTooDeep)

@@ -2,6 +2,7 @@
 //!
 //! This module is derived from the `prosemirror-markdown` schema and the
 //! the general JSON serialization of nodes.
+mod content;
 mod fragment;
 mod marks;
 mod node;
@@ -10,10 +11,11 @@ mod resolved_pos;
 mod schema;
 pub(crate) mod util;
 
+pub use content::{ContentMatch, ContentMatchError};
 pub use fragment::Fragment;
 pub use marks::{Mark, MarkSet};
 pub use node::{Node, NodeType, SliceError, Text};
-pub use replace::{ReplaceError, Slice};
+pub use replace::{InsertError, ReplaceError, Slice};
 pub use resolved_pos::{ResolveErr, ResolvedNode, ResolvedPos};
 pub use schema::{AttrNode, Block, Leaf, Schema, TextNode};
 
@@ -22,7 +24,7 @@ pub(crate) use resolved_pos::Index;
 
 #[cfg(test)]
 mod tests {
-    use super::{Index, Node, ResolvedNode, ResolvedPos};
+    use super::{fragment::IndexError, Index, Node, ResolvedNode, ResolvedPos};
     use crate::markdown::{helper::*, ImageAttrs, MarkdownNode, MD};
     use std::fmt::Debug;
     use std::ops::Deref;
@@ -64,7 +66,7 @@ mod tests {
         assert_eq!(ct_3.find_index(6, false), Ok(Index::new(1, 5)));
         assert_eq!(ct_3.find_index(7, false), Ok(Index::new(1, 5)));
         assert_eq!(ct_3.find_index(8, false), Ok(Index::new(2, 8)));
-        assert_eq!(ct_3.find_index(9, false), Err(()));
+        assert_eq!(ct_3.find_index(9, false), Err(IndexError::OutOfBounds(9)));
 
         assert_eq!(
             ResolvedPos::<MD>::resolve(&test_3, 0),

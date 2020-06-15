@@ -1,4 +1,4 @@
-use super::{Fragment, Node, Schema};
+use super::{fragment::IndexError, Fragment, Node, Schema};
 use derivative::Derivative;
 use displaydoc::Display;
 use std::borrow::Cow;
@@ -13,14 +13,8 @@ pub enum ResolveErr {
         /// The position that was out of range
         pos: usize,
     },
-    /// Broken Invariant
-    BrokenInvariant,
-}
-
-impl From<()> for ResolveErr {
-    fn from(_e: ()) -> Self {
-        Self::BrokenInvariant
-    }
+    /// Index error
+    Index(#[from] IndexError),
 }
 
 #[derive(Derivative, new)]

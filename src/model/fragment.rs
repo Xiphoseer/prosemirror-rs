@@ -1,11 +1,19 @@
 use super::{util, Index, Node, Schema, Text};
 use derivative::Derivative;
+use displaydoc::Display;
 use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
 use std::ops::RangeBounds;
+use thiserror::Error;
+
+#[derive(Copy, Clone, Debug, Error, Display, PartialEq, Eq)]
+pub enum IndexError {
+    /// Index is out of bounds {0}
+    OutOfBounds(usize),
+}
 
 /// A fragment represents a node's collection of child nodes.
-
+///
 /// Like nodes, fragments are persistent data structures, and you should not mutate them or their
 /// content. Rather, you create new instances whenever needed. The API tries to make this easy.
 #[derive(Derivative, Deserialize, Eq)]
@@ -225,7 +233,7 @@ impl<S: Schema> Fragment<S> {
         self.inner.get(index)
     }
 
-    pub(crate) fn find_index(&self, pos: usize, round: bool) -> Result<Index, ()> {
+    pub(crate) fn find_index(&self, pos: usize, round: bool) -> Result<Index, IndexError> {
         let len = self.inner.len();
         match pos {
             0 => Ok(Index {
@@ -236,7 +244,7 @@ impl<S: Schema> Fragment<S> {
                 index: len,
                 offset: pos,
             }),
-            p if p > self.size => Err(()),
+            p if p > self.size => Err(IndexError::OutOfBounds(p)),
             p => {
                 let mut cur_pos = 0;
                 for (i, cur) in self.inner.iter().enumerate() {

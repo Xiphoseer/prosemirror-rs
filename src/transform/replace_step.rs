@@ -45,12 +45,35 @@ pub struct ReplaceAroundStep<S: Schema> {
     /// End of the gap
     pub gap_to: usize,
     /// The inner slice
-    pub slice: Option<Slice<S>>,
+    #[serde(default)]
+    pub slice: Slice<S>,
     /// ???
     pub insert: usize,
     /// Whether this is a structural change
     #[serde(default)]
     pub structure: bool,
+}
+
+impl<S: Schema> StepKind<S> for ReplaceAroundStep<S> {
+    fn apply(&self, doc: &S::Node) -> StepResult<S> {
+        if self.structure
+            && (content_between::<S>(doc, self.span.from, self.gap_from)?
+                || content_between::<S>(doc, self.gap_to, self.span.to)?)
+        {
+            return Err(StepError::GapWouldOverwrite);
+        }
+
+        let gap = doc.slice(self.gap_from..self.gap_to, false)?;
+        if gap.open_start != 0 || gap.open_end != 0 {
+            return Err(StepError::GapNotFlat);
+        }
+
+        let inserted = self.slice.insert_at(self.insert, gap.content)?;
+        let inserted = inserted.ok_or(StepError::GapNotFit)?;
+
+        let result = doc.replace(self.span.from..self.span.to, &inserted)?;
+        Ok(result)
+    }
 }
 
 fn content_between<S: Schema>(doc: &S::Node, from: usize, to: usize) -> Result<bool, ResolveErr> {

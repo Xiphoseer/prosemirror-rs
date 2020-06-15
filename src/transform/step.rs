@@ -1,4 +1,4 @@
-use crate::model::{ReplaceError, ResolveErr, Schema};
+use crate::model::{InsertError, ReplaceError, ResolveErr, Schema, SliceError};
 use derivative::Derivative;
 use displaydoc::Display;
 use thiserror::Error;
@@ -9,10 +9,20 @@ use thiserror::Error;
 pub enum StepError<S: Schema> {
     /// Structure replace would overwrite content
     WouldOverwrite,
+    /// Structure gap-replace would overwrite content
+    GapWouldOverwrite,
+    /// Gap is not a flat range
+    GapNotFlat,
+    /// Content does not fit in gap
+    GapNotFit,
     /// Invalid indices
     Resolve(#[from] ResolveErr),
     /// Invalid resolve
     Replace(#[from] ReplaceError<S>),
+    /// Invalid slice
+    Slice(#[from] SliceError),
+    /// Insert error
+    Insert(#[from] InsertError),
 }
 
 /// The result of [applying](#transform.Step.apply) a step. Contains either a

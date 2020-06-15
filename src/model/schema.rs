@@ -1,4 +1,4 @@
-use super::{Fragment, Mark, MarkSet, Node, NodeType, Text};
+use super::{ContentMatch, Fragment, Mark, MarkSet, Node, NodeType, Text};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -11,6 +11,8 @@ pub trait Schema: Sized + 'static {
     type Node: Node<Self>;
     /// This type represents any of the node types that are valid in the schema.
     type NodeType: NodeType<Self>;
+    /// This type represents the `ContentMatch` impl
+    type ContentMatch: ContentMatch<Self>;
 }
 
 /// A simple block node

@@ -1,6 +1,6 @@
 use super::{
-    replace, util, Fragment, MarkSet, ReplaceError, ResolveErr, ResolvedPos, Schema, Slice,
-    TextNode,
+    replace, util, ContentMatch, ContentMatchError, Fragment, MarkSet, ReplaceError, ResolveErr,
+    ResolvedPos, Schema, Slice, TextNode,
 };
 use displaydoc::Display;
 use serde::{Deserialize, Serialize, Serializer};
@@ -24,6 +24,10 @@ pub trait NodeType<S: Schema>: Copy + Clone + Debug + PartialEq + Eq {
     fn compatible_content(self, other: Self) -> bool;
     /// ???
     fn valid_content(self, fragment: &Fragment<S>) -> bool;
+    /// ???
+    fn content_match(self) -> S::ContentMatch;
+    /// ???
+    fn allow_marks(self, marks: &MarkSet<S>) -> bool;
 }
 
 /// This class represents a node in the tree that makes up a ProseMirror document. So a document is
@@ -31,6 +35,37 @@ pub trait NodeType<S: Schema>: Copy + Clone + Debug + PartialEq + Eq {
 pub trait Node<S: Schema<Node = Self> + 'static>:
     Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq + Eq + Sized + From<TextNode<S>>
 {
+    /// The size of this node, as defined by the integer-based indexing scheme. For text nodes,
+    /// this is the amount of characters. For other leaf nodes, it is one. For non-leaf nodes, it
+    /// is the size of the content plus two (the start and end token).
+    fn node_size(&self) -> usize {
+        match self.content() {
+            Some(c) => c.size() + 2,
+            None => {
+                if let Some(node) = self.text_node() {
+                    node.text.len_utf16
+                } else {
+                    1
+                }
+            }
+        }
+    }
+
+    /// The number of children that the node has.
+    fn child_count(&self) -> usize {
+        self.content().map_or(0, Fragment::child_count)
+    }
+
+    /// Get the child node at the given index. Raises an error when the index is out of range.
+    fn child(&self, index: usize) -> Option<&Self> {
+        self.content().map(|c| c.child(index))
+    }
+
+    /// Get the child node at the given index, if it exists.
+    fn maybe_child(&self, index: usize) -> Option<&Self> {
+        self.content().and_then(|c| c.maybe_child(index))
+    }
+
     /// Create a copy of this node with only the content between the given positions.
     fn cut<R: RangeBounds<usize>>(&self, range: R) -> Cow<Self> {
         let from = util::from(&range);
@@ -172,26 +207,6 @@ pub trait Node<S: Schema<Node = Self> + 'static>:
     /// Get the type of the node
     fn r#type(&self) -> S::NodeType;
 
-    /// Get the child node at the given index. Raises an error when the index is out of range.
-    fn child(&self, index: usize) -> Option<&Self> {
-        self.content().map(|c| c.child(index))
-    }
-
-    /// Get the child node at the given index, if it exists.
-    fn maybe_child(&self, index: usize) -> Option<&Self> {
-        self.content().and_then(|c| c.maybe_child(index))
-    }
-
-    /// The number of children that the node has.
-    fn child_count(&self) -> usize {
-        self.content().map_or(0, Fragment::child_count)
-    }
-
-    /// True when this is a leaf node.
-    fn is_leaf(&self) -> bool {
-        self.content().is_none()
-    }
-
     /// True when this is a block (non-inline node)
     fn is_block(&self) -> bool;
 
@@ -200,19 +215,56 @@ pub trait Node<S: Schema<Node = Self> + 'static>:
         self.text_node().is_some()
     }
 
-    /// The size of this node, as defined by the integer-based indexing scheme. For text nodes,
-    /// this is the amount of characters. For other leaf nodes, it is one. For non-leaf nodes, it
-    /// is the size of the content plus two (the start and end token).
-    fn node_size(&self) -> usize {
-        match self.content() {
-            Some(c) => c.size() + 2,
-            None => {
-                if let Some(node) = self.text_node() {
-                    node.text.len_utf16
-                } else {
-                    1
+    /// True when this is a leaf node.
+    fn is_leaf(&self) -> bool {
+        self.content().is_none()
+    }
+
+    /// Get the content match in this node at the given index.
+    fn content_match_at(&self, index: usize) -> Result<S::ContentMatch, ContentMatchError> {
+        self.r#type()
+            .content_match()
+            .match_fragment_range(&self.content().unwrap_or(Fragment::EMPTY_REF), 0..index)
+            .ok_or(ContentMatchError::InvalidContent)
+    }
+
+    /// Test whether replacing the range between `from` and `to` (by
+    /// child index) with the given replacement fragment (which defaults
+    /// to the empty fragment) would leave the node's content valid. You
+    /// can optionally pass `start` and `end` indices into the
+    /// replacement fragment.
+    fn can_replace<R: RangeBounds<usize>>(
+        &self,
+        from: usize,
+        to: usize,
+        replacement: Option<&Fragment<S>>,
+        range: R,
+    ) -> Result<bool, ContentMatchError> {
+        let replacement = replacement.unwrap_or(Fragment::EMPTY_REF);
+        let start = util::from(&range);
+        let end = util::to(&range, replacement.child_count());
+
+        let one = self
+            .content_match_at(from)?
+            .match_fragment_range(&replacement, start..end);
+        let two = one.and_then(|o| {
+            o.match_fragment_range(&self.content().unwrap_or(Fragment::EMPTY_REF), to..)
+        });
+
+        if matches!(two, Some(m) if m.valid_end()) {
+            for i in start..end {
+                if replacement
+                    .child(i)
+                    .marks()
+                    .filter(|m| !self.r#type().allow_marks(m))
+                    .is_some()
+                {
+                    return Ok(false);
                 }
             }
+            Ok(true)
+        } else {
+            Ok(false)
         }
     }
 }
