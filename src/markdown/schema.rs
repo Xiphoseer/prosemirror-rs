@@ -42,13 +42,31 @@ pub enum MarkdownNodeType {
     Image,
 }
 
+impl MarkdownNodeType {
+    fn _allow_marks(self) -> bool {
+        match self {
+            Self::Doc
+            | Self::Blockquote
+            | Self::BulletList
+            | Self::OrderedList
+            | Self::ListItem => false, // block && !textblock
+
+            Self::CodeBlock => false, // marks = ""
+
+            Self::Heading | Self::Paragraph => true, // textblock
+
+            Self::Text | Self::HorizontalRule | Self::HardBreak | Self::Image => true, // inline
+        }
+    }
+}
+
 impl NodeType<MD> for MarkdownNodeType {
     fn allow_marks(self, _marks: &MarkSet<MD>) -> bool {
-        self.is_inline()
+        self._allow_marks()
     }
 
     fn allows_mark_type(self, _mark_type: MarkdownMarkType) -> bool {
-        self.is_inline()
+        self._allow_marks()
     }
 
     fn is_inline(self) -> bool {

@@ -30,7 +30,11 @@ pub trait NodeType<S: Schema>: Copy + Clone + Debug + PartialEq + Eq {
 
     /// ???
     fn content_match(self) -> S::ContentMatch;
-    /// ???
+
+    /// Check whether the given marks is allowed in this node.
+    ///
+    /// By default, marks are allowed in inline nodes and textblocks, i.e. nodes that
+    /// have inline content.
     fn allow_marks(self, marks: &MarkSet<S>) -> bool;
 
     /// True if this is an inline type.

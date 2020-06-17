@@ -26,7 +26,7 @@ impl<S: Schema> StepKind<S> for ReplaceStep<S> {
         if self.structure && content_between::<S>(doc, from, to)? {
             Err(StepError::WouldOverwrite)
         } else {
-            let node = doc.replace(from..=to, &self.slice)?;
+            let node = doc.replace(from..to, &self.slice)?;
             Ok(node)
         }
     }

@@ -78,6 +78,7 @@ impl<S: Schema> StepKind<S> for AddMarkStep<S> {
             },
             parent,
         );
+
         let slice = Slice::new(new_content, old_slice.open_start, old_slice.open_end);
         // TODO: Cow::Owned?
         let new_node = doc.replace(self.span.from..self.span.to, &slice)?;

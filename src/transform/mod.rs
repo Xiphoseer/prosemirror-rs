@@ -33,11 +33,37 @@ pub enum Step<S: Schema> {
     RemoveMark(RemoveMarkStep<S>),
 }
 
+impl<S: Schema> Step<S> {
+    /// Apply the step to the given node
+    pub fn apply(&self, doc: &S::Node) -> StepResult<S> {
+        match self {
+            Self::Replace(r_step) => r_step.apply(doc),
+            Self::ReplaceAround(ra_step) => ra_step.apply(doc),
+            Self::AddMark(am_step) => am_step.apply(doc),
+            Self::RemoveMark(rm_step) => rm_step.apply(doc),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{AddMarkStep, ReplaceStep, Span, Step};
-    use crate::markdown::{MarkdownMark, MarkdownNode, MD};
+    use super::{AddMarkStep, ReplaceStep, Span, Step, StepKind};
+    use crate::markdown::{
+        helper::{doc, node, p, strong},
+        MarkdownMark, MarkdownNode, MD,
+    };
     use crate::model::{Fragment, Node, Slice};
+
+    #[test]
+    fn test_apply() {
+        let d1 = doc(p("Hello World!"));
+        let step1 = AddMarkStep::<MD> {
+            span: Span { from: 1, to: 9 },
+            mark: MarkdownMark::Strong,
+        };
+        let d2 = step1.apply(&d1).unwrap();
+        assert_eq!(d2, doc(p(vec![strong("Hello Wo"), node("rld!")])));
+    }
 
     #[test]
     fn test_deserialize() {
