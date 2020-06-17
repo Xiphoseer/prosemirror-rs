@@ -7,7 +7,9 @@ mod content;
 pub mod helper;
 mod schema;
 
-use crate::model::{AttrNode, Block, Fragment, Leaf, Mark, MarkSet, Node, Text, TextNode};
+use crate::model::{
+    AttrNode, Block, Fragment, Leaf, Mark, MarkSet, MarkType, Node, Text, TextNode,
+};
 pub use attrs::{
     BulletListAttrs, CodeBlockAttrs, HeadingAttrs, ImageAttrs, LinkAttrs, OrderedListAttrs,
 };
@@ -104,7 +106,7 @@ impl Node<MD> for MarkdownNode {
     fn text<A: Into<String>>(text: A) -> Self {
         Self::Text(TextNode {
             text: Text::from(text.into()),
-            marks: MarkSet::<MD>::new(),
+            marks: MarkSet::<MD>::default(),
         })
     }
 
@@ -127,6 +129,18 @@ impl Node<MD> for MarkdownNode {
 
     fn marks(&self) -> Option<&MarkSet<MD>> {
         None
+    }
+
+    fn mark(&self, set: MarkSet<MD>) -> Self {
+        // TODO: marks on other nodes
+        if let Some(text_node) = self.text_node() {
+            Self::Text(TextNode {
+                marks: set,
+                text: text_node.text.clone(),
+            })
+        } else {
+            self.clone()
+        }
     }
 
     fn copy<F>(&self, map: F) -> Self
@@ -173,4 +187,28 @@ pub enum MarkdownMark {
     },
 }
 
-impl Mark for MarkdownMark {}
+impl Mark<MD> for MarkdownMark {
+    fn r#type(&self) -> MarkdownMarkType {
+        match self {
+            Self::Strong => MarkdownMarkType::Strong,
+            Self::Em => MarkdownMarkType::Em,
+            Self::Code => MarkdownMarkType::Code,
+            Self::Link { .. } => MarkdownMarkType::Link,
+        }
+    }
+}
+
+/// The type of a markdown mark.
+#[derive(Debug, Hash, Eq, Copy, Clone, PartialEq, PartialOrd, Ord)]
+pub enum MarkdownMarkType {
+    /// bold
+    Strong,
+    /// italics
+    Em,
+    /// monospace
+    Code,
+    /// hyper-linked
+    Link,
+}
+
+impl MarkType for MarkdownMarkType {}

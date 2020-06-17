@@ -24,10 +24,21 @@ pub trait NodeType<S: Schema>: Copy + Clone + Debug + PartialEq + Eq {
     fn compatible_content(self, other: Self) -> bool;
     /// ???
     fn valid_content(self, fragment: &Fragment<S>) -> bool;
+
+    /// Check whether the given mark type is allowed in this node.
+    fn allows_mark_type(self, mark_type: S::MarkType) -> bool;
+
     /// ???
     fn content_match(self) -> S::ContentMatch;
     /// ???
     fn allow_marks(self, marks: &MarkSet<S>) -> bool;
+
+    /// True if this is an inline type.
+    fn is_inline(self) -> bool {
+        !self.is_block()
+    }
+    /// True if this is a block type
+    fn is_block(self) -> bool;
 }
 
 /// This class represents a node in the tree that makes up a ProseMirror document. So a document is
@@ -65,6 +76,9 @@ pub trait Node<S: Schema<Node = Self> + 'static>:
     fn maybe_child(&self, index: usize) -> Option<&Self> {
         self.content().and_then(|c| c.maybe_child(index))
     }
+
+    /// Create a copy of this node, with the given set of marks instead of the node's own marks.
+    fn mark(&self, marks: MarkSet<S>) -> Self;
 
     /// Create a copy of this node with only the content between the given positions.
     fn cut<R: RangeBounds<usize>>(&self, range: R) -> Cow<Self> {
@@ -209,6 +223,11 @@ pub trait Node<S: Schema<Node = Self> + 'static>:
 
     /// True when this is a block (non-inline node)
     fn is_block(&self) -> bool;
+
+    /// True when this is an inline node (a text node or a node that can appear among text).
+    fn is_inline(&self) -> bool {
+        self.r#type().is_inline()
+    }
 
     /// True when this is a text node.
     fn is_text(&self) -> bool {

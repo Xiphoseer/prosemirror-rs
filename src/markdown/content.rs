@@ -1,5 +1,5 @@
 use crate::markdown::{MarkdownNodeType, MD};
-use crate::model::{util, ContentMatch, Fragment, Node};
+use crate::model::{util, ContentMatch, Fragment, Node, NodeType};
 use crate::util::then_some;
 use std::ops::RangeBounds;
 

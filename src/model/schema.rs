@@ -6,7 +6,9 @@ use std::fmt::Debug;
 /// This type represents a schema.
 pub trait Schema: Sized + 'static {
     /// This type represents any of the marks that are valid in the schema.
-    type Mark: Mark;
+    type Mark: Mark<Self>;
+    /// This type represents any of the mark types that are valid in the schema.
+    type MarkType: MarkType;
     /// This type represents any of the nodes that are valid in the schema.
     type Node: Node<Self>;
     /// This type represents any of the node types that are valid in the schema.
@@ -117,3 +119,9 @@ pub struct Leaf<A> {
     /// Attributes
     pub attrs: A,
 }
+
+/// Like nodes, marks (which are associated with nodes to signify
+/// things like emphasis or being part of a link) are
+/// [tagged](#model.Mark.type) with type objects, which are
+/// instantiated once per `Schema`.
+pub trait MarkType: Copy + Clone + Debug + PartialEq + Eq + PartialOrd + Ord {}

@@ -4,7 +4,7 @@
 //!
 //! See also: <https://github.com/prosemirror/prosemirror-test-builder>
 use super::{BulletListAttrs, CodeBlockAttrs, HeadingAttrs, MarkdownMark, MarkdownNode, MD};
-use crate::model::{self, AttrNode, Block, Text, TextNode};
+use crate::model::{self, AttrNode, Block, Mark, Text, TextNode};
 
 type Fragment = model::Fragment<MD>;
 
@@ -49,7 +49,7 @@ pub fn h2<A: Into<Fragment>>(content: A) -> MarkdownNode {
 pub fn em(content: &str) -> MarkdownNode {
     MarkdownNode::Text(TextNode {
         text: Text::from(content.to_string()),
-        marks: [MarkdownMark::Em].iter().cloned().collect(),
+        marks: MarkdownMark::Em.into_set(),
     })
 }
 
@@ -57,7 +57,7 @@ pub fn em(content: &str) -> MarkdownNode {
 pub fn strong(content: &str) -> MarkdownNode {
     MarkdownNode::Text(TextNode {
         text: Text::from(content.to_string()),
-        marks: [MarkdownMark::Strong].iter().cloned().collect(),
+        marks: MarkdownMark::Strong.into_set(),
     })
 }
 

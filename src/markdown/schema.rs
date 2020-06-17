@@ -1,3 +1,4 @@
+use super::MarkdownMarkType;
 use crate::markdown::{MarkdownContentMatch, MarkdownMark, MarkdownNode};
 use crate::model::{ContentMatch, Fragment, MarkSet, Node, NodeType, Schema};
 
@@ -7,6 +8,7 @@ pub struct MD;
 impl Schema for MD {
     type Node = MarkdownNode;
     type Mark = MarkdownMark;
+    type MarkType = MarkdownMarkType;
     type NodeType = MarkdownNodeType;
     type ContentMatch = MarkdownContentMatch;
 }
@@ -40,8 +42,20 @@ pub enum MarkdownNodeType {
     Image,
 }
 
-impl MarkdownNodeType {
-    pub(crate) fn is_block(self) -> bool {
+impl NodeType<MD> for MarkdownNodeType {
+    fn allow_marks(self, _marks: &MarkSet<MD>) -> bool {
+        self.is_inline()
+    }
+
+    fn allows_mark_type(self, _mark_type: MarkdownMarkType) -> bool {
+        self.is_inline()
+    }
+
+    fn is_inline(self) -> bool {
+        matches!(self, Self::Text | Self::Image | Self::HardBreak)
+    }
+
+    fn is_block(self) -> bool {
         matches!(
             self,
             Self::Paragraph
@@ -52,16 +66,6 @@ impl MarkdownNodeType {
                 | Self::OrderedList
                 | Self::BulletList
         )
-    }
-
-    pub(crate) fn is_inline(self) -> bool {
-        matches!(self, Self::Text | Self::Image | Self::HardBreak)
-    }
-}
-
-impl NodeType<MD> for MarkdownNodeType {
-    fn allow_marks(self, marks: &MarkSet<MD>) -> bool {
-        true //todo!()
     }
 
     fn content_match(self) -> MarkdownContentMatch {

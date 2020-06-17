@@ -17,7 +17,7 @@ pub use marks::{Mark, MarkSet};
 pub use node::{Node, NodeType, SliceError, Text};
 pub use replace::{InsertError, ReplaceError, Slice};
 pub use resolved_pos::{ResolveErr, ResolvedNode, ResolvedPos};
-pub use schema::{AttrNode, Block, Leaf, Schema, TextNode};
+pub use schema::{AttrNode, Block, Leaf, MarkType, Schema, TextNode};
 
 pub(crate) use replace::replace;
 pub(crate) use resolved_pos::Index;

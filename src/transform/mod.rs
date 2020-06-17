@@ -1,9 +1,11 @@
 //! # The document transformations
 //!
+mod mark_step;
 mod replace_step;
 mod step;
 mod util;
 
+pub use mark_step::{AddMarkStep, RemoveMarkStep};
 pub use replace_step::{ReplaceAroundStep, ReplaceStep};
 pub use step::{StepError, StepKind, StepResult};
 pub use util::Span;
@@ -29,30 +31,6 @@ pub enum Step<S: Schema> {
     AddMark(AddMarkStep<S>),
     /// Remove a mark from a span
     RemoveMark(RemoveMarkStep<S>),
-}
-
-/// Adding a mark on some part of the document
-#[derive(Derivative, Deserialize, Serialize)]
-#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
-#[serde(bound = "", rename_all = "camelCase")]
-pub struct AddMarkStep<S: Schema> {
-    /// The affected part of the document
-    #[serde(flatten)]
-    pub span: Span,
-    /// The mark to add
-    pub mark: S::Mark,
-}
-
-/// Removing a mark on some part of the document
-#[derive(Derivative, Deserialize, Serialize)]
-#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
-#[serde(bound = "", rename_all = "camelCase")]
-pub struct RemoveMarkStep<S: Schema> {
-    /// The affected part of the document
-    #[serde(flatten)]
-    pub span: Span,
-    /// The mark to remove
-    pub mark: S::Mark,
 }
 
 #[cfg(test)]
