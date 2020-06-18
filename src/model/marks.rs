@@ -18,6 +18,21 @@ pub struct MarkSet<S: Schema> {
     content: Vec<S::Mark>,
 }
 
+impl<S: Schema> MarkSet<S> {
+    /// Check whether the set contains this exact mark
+    pub fn contains(&self, mark: &S::Mark) -> bool {
+        self.content.contains(mark)
+    }
+}
+
+impl<'a, S: Schema> IntoIterator for &'a MarkSet<S> {
+    type Item = &'a S::Mark;
+    type IntoIter = std::slice::Iter<'a, S::Mark>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.content.iter()
+    }
+}
+
 impl<S: Schema> Serialize for MarkSet<S> {
     fn serialize<Sr>(&self, serializer: Sr) -> Result<Sr::Ok, Sr::Error>
     where

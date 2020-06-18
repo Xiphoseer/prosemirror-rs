@@ -7,6 +7,9 @@ mod content;
 pub mod helper;
 mod schema;
 
+#[cfg(feature = "cmark")]
+mod to_markdown;
+
 use crate::model::{
     AttrNode, Block, Fragment, Leaf, Mark, MarkSet, MarkType, Node, Text, TextNode,
 };
@@ -15,6 +18,9 @@ pub use attrs::{
 };
 pub use content::MarkdownContentMatch;
 pub use schema::{MarkdownNodeType, MD};
+
+#[cfg(feature = "cmark")]
+pub use to_markdown::{to_markdown, ToMarkdownError};
 
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
