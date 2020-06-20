@@ -321,6 +321,13 @@ impl Text {
         let len_utf16 = self.len_utf16 + other.len_utf16;
         Text { content, len_utf16 }
     }
+
+    pub(crate) fn remove_last_newline(&mut self) {
+        if let Some('\n') = self.content.chars().next_back() {
+            self.content.pop();
+            self.len_utf16 -= 1;
+        }
+    }
 }
 
 impl From<String> for Text {

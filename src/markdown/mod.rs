@@ -8,6 +8,8 @@ pub mod helper;
 mod schema;
 
 #[cfg(feature = "cmark")]
+mod from_markdown;
+#[cfg(feature = "cmark")]
 mod to_markdown;
 
 use crate::model::{
@@ -19,6 +21,8 @@ pub use attrs::{
 pub use content::MarkdownContentMatch;
 pub use schema::{MarkdownNodeType, MD};
 
+#[cfg(feature = "cmark")]
+pub use from_markdown::{from_markdown, FromMarkdownError};
 #[cfg(feature = "cmark")]
 pub use to_markdown::{to_markdown, ToMarkdownError};
 

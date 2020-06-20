@@ -1,9 +1,9 @@
-use super::{MarkType, Schema};
+use super::Schema;
 use derivative::Derivative;
 use displaydoc::Display;
 use serde::{Deserialize, Serialize, Serializer};
 use std::fmt::{self, Debug};
-use std::{borrow::Cow, cmp::Ordering, convert::TryFrom, hash::Hash};
+use std::{borrow::Cow, convert::TryFrom, hash::Hash};
 
 /// A set of marks
 #[derive(Derivative, Deserialize)]
@@ -22,6 +22,36 @@ impl<S: Schema> MarkSet<S> {
     /// Check whether the set contains this exact mark
     pub fn contains(&self, mark: &S::Mark) -> bool {
         self.content.contains(mark)
+    }
+
+    /// Add a mark to the set
+    pub fn add(&mut self, mark: &S::Mark) {
+        match self
+            .content
+            .binary_search_by_key(&mark.r#type(), Mark::r#type)
+        {
+            Ok(index) => {
+                if &self.content[index] != mark {
+                    self.content[index] = mark.clone();
+                }
+            }
+            Err(index) => {
+                self.content.insert(index, mark.clone());
+            }
+        }
+    }
+
+    /// Remove a mark from the set
+    pub fn remove(&mut self, mark: &S::Mark) {
+        match self
+            .content
+            .binary_search_by_key(&mark.r#type(), Mark::r#type)
+        {
+            Ok(index) => {
+                self.content.remove(index);
+            }
+            Err(_index) => {}
+        }
     }
 }
 
@@ -68,16 +98,6 @@ impl<S: Schema> fmt::Debug for MarkSet<S> {
     }
 }
 
-fn compare_mark<S, M, MT>(mark: &M) -> impl FnMut(&M) -> Ordering
-where
-    S: Schema<Mark = M, MarkType = MT>,
-    M: Mark<S>,
-    MT: MarkType,
-{
-    let typ: MT = mark.r#type();
-    move |mark| mark.r#type().cmp(&typ)
-}
-
 /// The methods that
 pub trait Mark<S: Schema<Mark = Self>>:
     Serialize + for<'de> Deserialize<'de> + Debug + Clone + PartialEq + Eq + Hash
@@ -89,8 +109,10 @@ pub trait Mark<S: Schema<Mark = Self>>:
     /// position. If this mark is already in the set, the set itself is returned. If any marks that
     /// are set to be exclusive with this mark are present, those are replaced by this one.
     fn add_to_set<'a>(&self, set: Cow<'a, MarkSet<S>>) -> Cow<'a, MarkSet<S>> {
-        let by = compare_mark::<S, Self, S::MarkType>(self);
-        match set.content.binary_search_by(by) {
+        match set
+            .content
+            .binary_search_by_key(&self.r#type(), Mark::r#type)
+        {
             Ok(index) => {
                 if &set.content[index] == self {
                     set
@@ -111,8 +133,10 @@ pub trait Mark<S: Schema<Mark = Self>>:
     /// Remove this mark from the given set, returning a new set. If this mark is not in the set,
     /// the set itself is returned.
     fn remove_from_set<'a>(&self, set: Cow<'a, MarkSet<S>>) -> Cow<'a, MarkSet<S>> {
-        let by = compare_mark::<S, Self, S::MarkType>(self);
-        match set.content.binary_search_by(by) {
+        match set
+            .content
+            .binary_search_by_key(&self.r#type(), Mark::r#type)
+        {
             Ok(index) => {
                 let mut owned_set = set.into_owned();
                 owned_set.content.remove(index);

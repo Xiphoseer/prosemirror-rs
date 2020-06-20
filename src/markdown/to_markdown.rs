@@ -1,10 +1,12 @@
 use super::{MarkdownMark, MarkdownNode, MD};
 use crate::model::{AttrNode, Block, Fragment, Leaf, Node};
-use pulldown_cmark::{CodeBlockKind, CowStr, Event, LinkType, Tag};
+use displaydoc::Display;
+use pulldown_cmark::{CodeBlockKind, CowStr, Event, InlineStr, LinkType, Tag};
 use pulldown_cmark_to_cmark::cmark;
+use thiserror::Error;
 
 /// Possible error when generating markdown
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Display, Error)]
 pub struct ToMarkdownError {
     /// The inner error
     inner: std::fmt::Error,
@@ -27,6 +29,7 @@ pub fn to_markdown(doc: &MarkdownNode) -> Result<String, ToMarkdownError> {
 struct MarkdownSerializer<'a> {
     inner: Vec<(&'a MarkdownNode, usize)>,
     marks: Vec<&'a MarkdownMark>,
+    stack: Vec<Event<'a>>,
 }
 
 impl<'a> MarkdownSerializer<'a> {
@@ -34,6 +37,7 @@ impl<'a> MarkdownSerializer<'a> {
         Self {
             inner: vec![(doc, 0)],
             marks: vec![],
+            stack: vec![],
         }
     }
 }
@@ -96,7 +100,13 @@ impl<'a> MarkdownSerializer<'a> {
                 self.inner.push((node, index));
                 return Some(Event::End(mark_tag(mark)));
             }
-            Some(Event::End(map(attrs)))
+            let tag = map(attrs);
+            if matches!(&tag, Tag::CodeBlock(..)) {
+                self.stack.push(Event::End(tag));
+                Some(Event::Text(CowStr::Inlined(InlineStr::from('\n'))))
+            } else {
+                Some(Event::End(tag))
+            }
         } else {
             self.next()
         }
@@ -106,6 +116,10 @@ impl<'a> MarkdownSerializer<'a> {
 impl<'a> Iterator for MarkdownSerializer<'a> {
     type Item = Event<'a>;
     fn next(&mut self) -> Option<Self::Item> {
+        if let Some(ev) = self.stack.pop() {
+            return Some(ev);
+        }
+
         if let Some((node, index)) = self.inner.pop() {
             match node {
                 MarkdownNode::Doc(Block { content }) => {
