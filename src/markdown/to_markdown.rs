@@ -177,7 +177,7 @@ impl<'a> Iterator for MarkdownSerializer<'a> {
                 MarkdownNode::ListItem(Block { content }) => {
                     self.process_attr_node(index, content, &(), node, |()| Tag::Item)
                 }
-                MarkdownNode::HorizontalRule => self.next(),
+                MarkdownNode::HorizontalRule => Some(Event::Rule),
                 MarkdownNode::HardBreak => {
                     // todo: inline marks
                     Some(Event::HardBreak)
