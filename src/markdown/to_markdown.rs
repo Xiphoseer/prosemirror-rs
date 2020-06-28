@@ -235,7 +235,7 @@ mod tests {
         # Padington\n\
         \n\
         ````\n\
-        fn foo(a: u32) -> u32 {\n  2 * a\n}\
+        fn foo(a: u32) -> u32 {\n  2 * a\n}\n\
         ````\n\
         \n\
         ## Lorem Ipsum\n\

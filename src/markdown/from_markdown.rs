@@ -332,3 +332,37 @@ impl MarkdownDeserializer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use pulldown_cmark::{CowStr, Event, Parser, Tag};
+
+    #[test]
+    fn test_alerts() {
+        let test_string = "\
+        ### Alert Area\n\
+        \n\
+        :::success\n\
+        Yes :tada:\n\
+        :::\n\
+        ";
+
+        let p = Parser::new(test_string);
+        let v: Vec<Event> = p.collect();
+        assert_eq!(
+            v,
+            vec![
+                Event::Start(Tag::Heading(3)),
+                Event::Text(CowStr::Borrowed("Alert Area")),
+                Event::End(Tag::Heading(3)),
+                Event::Start(Tag::Paragraph),
+                Event::Text(CowStr::Borrowed(":::success")),
+                Event::SoftBreak,
+                Event::Text(CowStr::Borrowed("Yes :tada:")),
+                Event::SoftBreak,
+                Event::Text(CowStr::Borrowed(":::")),
+                Event::End(Tag::Paragraph),
+            ]
+        );
+    }
+}
