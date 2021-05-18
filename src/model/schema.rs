@@ -105,7 +105,7 @@ impl<S: Schema> TextNode<S> {
     }
 
     /// Create a new `TextNode` with the given text
-    pub fn with_text<'o>(&self, text: Text) -> Self {
+    pub fn with_text(&self, text: Text) -> Self {
         TextNode {
             marks: self.marks.clone(),
             text,

@@ -18,7 +18,7 @@ pub enum ResolveErr {
 }
 
 #[derive(Derivative, new)]
-#[derivative(Clone(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[derivative(PartialEq(bound = ""), Eq(bound = ""))]
 /// A node in the resolution path
 pub struct ResolvedNode<'a, S: Schema> {
     /// Reference to the node
@@ -27,6 +27,16 @@ pub struct ResolvedNode<'a, S: Schema> {
     pub index: usize,
     /// Offset immediately before the node
     pub before: usize,
+}
+
+impl<'a, S: Schema> Clone for ResolvedNode<'a, S> {
+    fn clone(&self) -> Self {
+        Self {
+            node: self.node,
+            index: self.index,
+            before: self.before,
+        }
+    }
 }
 
 impl<'a, S: Schema> fmt::Debug for ResolvedNode<'a, S> {
@@ -186,7 +196,7 @@ impl<'a, S: Schema> ResolvedPos<'a, S> {
                 return depth;
             }
         }
-        return 0;
+        0
     }
 
     pub(crate) fn resolve(doc: &'a S::Node, pos: usize) -> Result<Self, ResolveErr> {
