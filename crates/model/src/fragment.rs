@@ -1,5 +1,4 @@
 use super::{util, Index, Node, Schema, Text};
-use derivative::Derivative;
 use displaydoc::Display;
 use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
@@ -16,13 +15,31 @@ pub enum IndexError {
 ///
 /// Like nodes, fragments are persistent data structures, and you should not mutate them or their
 /// content. Rather, you create new instances whenever needed. The API tries to make this easy.
-#[derive(Derivative, Deserialize, Eq)]
-#[derivative(Debug(bound = ""), Clone(bound = ""), PartialEq(bound = ""))]
+#[derive(Debug, Deserialize)]
 #[serde(from = "Vec<S::Node>")]
 pub struct Fragment<S: Schema> {
     inner: Vec<S::Node>,
     size: usize,
 }
+
+// ==== Trait impls without the bound on S ====
+impl<S: Schema> Clone for Fragment<S> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            size: self.size,
+        }
+    }
+}
+
+impl<S: Schema> PartialEq for Fragment<S> {
+    fn eq(&self, other: &Fragment<S>) -> bool {
+        self.size.eq(&other.size) && self.inner.eq(&other.inner)
+    }
+}
+
+impl<S: Schema> Eq for Fragment<S> {}
+// ==== ---------------------------------- ====
 
 impl<S: Schema> Fragment<S> {
     /// An empty fragment

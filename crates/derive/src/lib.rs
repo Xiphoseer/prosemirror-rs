@@ -39,6 +39,9 @@ enum NodeAttribute {
 
 #[derive(Clone)]
 enum NodeDataKind {
+    Inplace {
+        content: Option<syn::Ident>,
+    },
     Fields(syn::Type),
     Unit,
 }
@@ -146,8 +149,21 @@ pub fn my_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
             }
             let data_kind = match &var.fields {
-                Fields::Named(_fields) => {
-                    panic!()
+                Fields::Named(fields) => {
+                    let mut content = None;
+
+                    for field in &fields.named {
+                        if let Some(ident) = &field.ident {
+                            if ident == "content" {
+                                content = Some(ident.clone());
+                                // FIXME: assert field.ty == Fragment<#schema_ty>
+                            }
+                        }
+                    }
+
+                    NodeDataKind::Inplace {
+                        content
+                    }
                 }
                 Fields::Unnamed(fields) => {
                     assert_eq!(fields.unnamed.len(), 1);
@@ -245,7 +261,7 @@ fn make_is_block(schema: &Schema) -> TokenStream {
         let is_block = LitBool::new(!var.inline, span);
         let pat = match var.data_kind {
             NodeDataKind::Unit => quote_spanned!(span=>Self::#name),
-            NodeDataKind::Fields(_) => {
+            NodeDataKind::Fields(_) | NodeDataKind::Inplace { .. } => {
                 quote_spanned!(span=>Self::#name { .. })
             }
         };
@@ -268,7 +284,7 @@ fn make_type(schema: &Schema) -> TokenStream {
 
         let pat = match var.data_kind {
             NodeDataKind::Unit => quote_spanned!(span=>Self::#name),
-            NodeDataKind::Fields(_) => {
+            NodeDataKind::Fields(_) | NodeDataKind::Inplace { .. } => {
                 quote_spanned!(span=>Self::#name { .. })
             }
         };
@@ -289,10 +305,17 @@ fn make_copy(schema: &Schema) -> TokenStream {
         let name = var.ident.clone();
         let span = name.span();
 
-        match var.data_kind {
+        match &var.data_kind {
             NodeDataKind::Unit => quote_spanned!(span=>Self::#name => Self::#name),
             NodeDataKind::Fields(_) => {
                 quote_spanned!(span=>Self::#name(data) => Self::#name(data.copy(map)))
+            }
+            NodeDataKind::Inplace { content } => {
+                if let Some(content_field_name) = content {
+                    quote_spanned!(span=>Self::#name { #content_field_name } => Self::#name { #content_field_name: map(#content_field_name) })
+                } else {
+                    panic!()
+                }
             }
         }
     });
@@ -319,6 +342,13 @@ fn make_content(schema: &Schema) -> TokenStream {
             NodeDataKind::Fields(data_ty) => {
                 quote_spanned!(span=>Self::#name(data) => <#data_ty as ::prosemirror_model::NodeImpl<#schema_ty>>::content(data))
             }
+            &NodeDataKind::Inplace { ref content } => {
+                if let Some(content_field_name) = content {
+                    quote_spanned!(span=>Self::#name{ #content_field_name, .. } => Some(#content_field_name))
+                } else {
+                    quote_spanned!(span=>Self::#name => None)
+                }
+            }
         }
     });
     quote! {
@@ -340,7 +370,7 @@ fn make_clone(name: Ident, edata: DataEnum) -> TokenStream {
                 let names: Vec<_> = nfields.named.iter().map(|f| &f.ident).cloned().collect();
                 let tys = nfields.named.iter().map(|f| f.ty.clone());
                 quote! {
-                    Self::#name{ #(#names),* } => Self::#name{ #(<#tys as Clone>::clone(#names)),* }
+                    Self::#name{ #(#names),* } => Self::#name{ #(#names: <#tys as Clone>::clone(#names)),* }
                 }
             }
             Fields::Unnamed(ufields) => {

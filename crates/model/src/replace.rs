@@ -8,9 +8,8 @@ use std::borrow::Cow;
 use thiserror::Error;
 
 /// A slice of a fragment
-#[derive(Derivative, Deserialize, Serialize)]
+#[derive(Debug, Derivative, Deserialize, Serialize)]
 #[derivative(
-    Debug(bound = ""),
     PartialEq(bound = ""),
     Eq(bound = ""),
     Default(bound = "")

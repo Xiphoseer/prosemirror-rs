@@ -19,8 +19,8 @@ use serde::{Deserialize, Serialize};
 pub type Steps<S: Schema> = Vec<Step<S>>;
 
 /// Steps that can be applied on a document
-#[derive(Derivative, Deserialize, Serialize)]
-#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[derive(Debug, Derivative, Deserialize, Serialize)]
+#[derivative(PartialEq(bound = ""), Eq(bound = ""))]
 #[serde(bound = "", tag = "stepType", rename_all = "camelCase")]
 pub enum Step<S: Schema> {
     /// Replace some content

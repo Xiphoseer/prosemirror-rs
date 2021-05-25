@@ -38,7 +38,9 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum MarkdownNode {
     /// The document root
-    Doc(Block<MD>),
+    Doc {
+        content: Fragment<MD>
+    },
 
     /// A paragraph
     #[prosemirror(group = Block)]

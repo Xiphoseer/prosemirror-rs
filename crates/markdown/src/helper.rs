@@ -63,9 +63,9 @@ impl From<MarkdownNode> for Fragment {
 
 /// Create a document node.
 pub fn doc<A: IntoFragment>(content: A) -> MarkdownNode {
-    MarkdownNode::Doc(Block {
+    MarkdownNode::Doc {
         content: content.into_fragment(),
-    })
+    }
 }
 
 /// Create a heading node.

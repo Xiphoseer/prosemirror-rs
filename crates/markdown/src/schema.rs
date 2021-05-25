@@ -3,6 +3,7 @@ use crate::{MarkdownContentMatch, MarkdownMark, MarkdownNode};
 use prosemirror_model::{ContentMatch, Fragment, MarkSet, Node, NodeType, Schema};
 
 /// The markdown schema type
+#[derive(Debug)]
 pub struct MD;
 
 impl Schema for MD {

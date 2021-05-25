@@ -4,8 +4,8 @@ use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
 /// Replace some part of the document
-#[derive(Derivative, Deserialize, Serialize)]
-#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[derive(Debug, Derivative, Deserialize, Serialize)]
+#[derivative(PartialEq(bound = ""), Eq(bound = ""))]
 #[serde(bound = "", rename_all = "camelCase")]
 pub struct ReplaceStep<S: Schema> {
     /// The affected span
@@ -33,8 +33,8 @@ impl<S: Schema> StepKind<S> for ReplaceStep<S> {
 }
 
 /// Replace the document structure while keeping some content
-#[derive(Derivative, Deserialize, Serialize)]
-#[derivative(Debug(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
+#[derive(Debug, Derivative, Deserialize, Serialize)]
+#[derivative(PartialEq(bound = ""), Eq(bound = ""))]
 #[serde(bound = "", rename_all = "camelCase")]
 pub struct ReplaceAroundStep<S: Schema> {
     /// The affected part of the document

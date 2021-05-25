@@ -29,10 +29,8 @@ pub trait NodeImpl<S: Schema> {
 }
 
 /// A simple block node
-#[derive(Derivative, Deserialize, Serialize)]
+#[derive(Debug, Derivative, Deserialize, Serialize)]
 #[derivative(
-    Debug(bound = ""),
-    Clone(bound = ""),
     Default(bound = ""),
     PartialEq(bound = ""),
     Eq(bound = "")
@@ -41,8 +39,13 @@ pub trait NodeImpl<S: Schema> {
 pub struct Block<S: Schema> {
     /// The content.
     #[serde(default)]
-    #[derivative(Debug(bound = ""))]
     pub content: Fragment<S>,
+}
+
+impl<S: Schema> Clone for Block<S> {
+    fn clone(&self) -> Self {
+        Self { content: self.content.clone() }
+    }
 }
 
 impl<S: Schema> NodeImpl<S> for Block<S> {
@@ -62,9 +65,8 @@ impl<S: Schema> NodeImpl<S> for Block<S> {
 }
 
 /// A node with attributes
-#[derive(Derivative, Deserialize, Serialize)]
+#[derive(Debug, Derivative, Deserialize, Serialize)]
 #[derivative(
-    Debug(bound = "A: Debug"),
     Clone(bound = "A: Clone"),
     Default(bound = "A: Default"),
     PartialEq(bound = "A: PartialEq"),
