@@ -1,5 +1,6 @@
 use super::{fragment::IndexError, Fragment, Node, Schema};
 use derivative::Derivative;
+use derive_new::new;
 use displaydoc::Display;
 use std::borrow::Cow;
 use std::fmt;
@@ -67,6 +68,10 @@ pub struct ResolvedPos<'a, S: Schema> {
 }
 
 impl<'a, S: Schema> ResolvedPos<'a, S> {
+    pub fn depth(&self) -> usize {
+        self.depth
+    }
+
     pub(crate) fn new(pos: usize, path: Vec<ResolvedNode<'a, S>>, parent_offset: usize) -> Self {
         Self {
             depth: path.len() - 1,
@@ -234,7 +239,7 @@ impl<'a, S: Schema> ResolvedPos<'a, S> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct Index {
+pub struct Index {
     pub index: usize,
     pub offset: usize,
 }

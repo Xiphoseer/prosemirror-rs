@@ -1,7 +1,4 @@
-use super::{
-    replace, util, ContentMatch, ContentMatchError, Fragment, MarkSet, ReplaceError, ResolveErr,
-    ResolvedPos, Schema, Slice, TextNode,
-};
+use super::{ContentMatch, ContentMatchError, Fragment, MarkSet, ReplaceError, ResolveErr, ResolvedPos, Schema, Slice, TextNode, content::ContentMatchExt, replace, util};
 use displaydoc::Display;
 use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;

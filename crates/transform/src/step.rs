@@ -1,4 +1,4 @@
-use crate::model::{InsertError, ReplaceError, ResolveErr, Schema, SliceError};
+use prosemirror_model::{InsertError, ReplaceError, ResolveErr, Schema, SliceError};
 use derivative::Derivative;
 use displaydoc::Display;
 use thiserror::Error;

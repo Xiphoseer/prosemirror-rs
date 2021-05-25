@@ -17,6 +17,17 @@ pub trait Schema: Sized + 'static {
     type ContentMatch: ContentMatch<Self>;
 }
 
+/// Implemented for model data containers
+pub trait NodeImpl<S: Schema> {
+    /// Copy the data using the mapping function for child content
+    fn copy<F>(&self, map: F) -> Self
+    where
+        F: FnOnce(&Fragment<S>) -> Fragment<S>;
+
+    /// Get the content of this node
+    fn content(&self) -> Option<&Fragment<S>>;
+}
+
 /// A simple block node
 #[derive(Derivative, Deserialize, Serialize)]
 #[derivative(
@@ -34,15 +45,19 @@ pub struct Block<S: Schema> {
     pub content: Fragment<S>,
 }
 
-impl<S: Schema> Block<S> {
+impl<S: Schema> NodeImpl<S> for Block<S> {
     /// Copies this block, mapping the content
-    pub fn copy<F>(&self, map: F) -> Self
+    fn copy<F>(&self, map: F) -> Self
     where
         F: FnOnce(&Fragment<S>) -> Fragment<S>,
     {
         Block {
             content: map(&self.content),
         }
+    }
+
+    fn content(&self) -> Option<&Fragment<S>> {
+        Some(&self.content)
     }
 }
 
@@ -66,9 +81,9 @@ pub struct AttrNode<S: Schema, A> {
     pub content: Fragment<S>,
 }
 
-impl<S: Schema, A: Clone> AttrNode<S, A> {
+impl<S: Schema, A: Clone> NodeImpl<S> for AttrNode<S, A> {
     /// Copies this block, mapping the content
-    pub fn copy<F>(&self, map: F) -> Self
+    fn copy<F>(&self, map: F) -> Self
     where
         F: FnOnce(&Fragment<S>) -> Fragment<S>,
     {
@@ -76,6 +91,10 @@ impl<S: Schema, A: Clone> AttrNode<S, A> {
             content: map(&self.content),
             attrs: self.attrs.clone(),
         }
+    }
+
+    fn content(&self) -> Option<&Fragment<S>> {
+        Some(&self.content)
     }
 }
 
@@ -98,6 +117,19 @@ pub struct TextNode<S: Schema> {
     pub text: Text,
 }
 
+impl<S: Schema> NodeImpl<S> for TextNode<S> {
+    fn copy<F>(&self, _: F) -> Self
+    where
+        F: FnOnce(&Fragment<S>) -> Fragment<S>,
+    {
+        self.clone()
+    }
+
+    fn content(&self) -> Option<&Fragment<S>> {
+        None
+    }
+}
+
 impl<S: Schema> TextNode<S> {
     /// Check whether the marks are identical
     pub fn same_markup<'o>(&self, other: &'o S::Node) -> Option<&'o TextNode<S>> {
@@ -118,6 +150,20 @@ impl<S: Schema> TextNode<S> {
 pub struct Leaf<A> {
     /// Attributes
     pub attrs: A,
+}
+
+impl<S: Schema, A: Clone> NodeImpl<S> for Leaf<A> {
+    /// Copies this block, mapping the content
+    fn copy<F>(&self, _: F) -> Self
+    where
+        F: FnOnce(&Fragment<S>) -> Fragment<S>,
+    {
+        self.clone()
+    }
+
+    fn content(&self) -> Option<&Fragment<S>> {
+        None
+    }
 }
 
 /// Like nodes, marks (which are associated with nodes to signify

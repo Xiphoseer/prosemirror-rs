@@ -1,6 +1,6 @@
 use super::MarkdownMarkType;
-use crate::markdown::{MarkdownContentMatch, MarkdownMark, MarkdownNode};
-use crate::model::{ContentMatch, Fragment, MarkSet, Node, NodeType, Schema};
+use crate::{MarkdownContentMatch, MarkdownMark, MarkdownNode};
+use prosemirror_model::{ContentMatch, Fragment, MarkSet, Node, NodeType, Schema};
 
 /// The markdown schema type
 pub struct MD;

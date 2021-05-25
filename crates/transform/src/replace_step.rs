@@ -1,5 +1,5 @@
 use super::{Span, StepError, StepKind, StepResult};
-use crate::model::{Node, ResolveErr, Schema, Slice};
+use prosemirror_model::{Node, ResolveErr, Schema, Slice};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
@@ -79,7 +79,7 @@ impl<S: Schema> StepKind<S> for ReplaceAroundStep<S> {
 fn content_between<S: Schema>(doc: &S::Node, from: usize, to: usize) -> Result<bool, ResolveErr> {
     let rp_from = doc.resolve(from)?;
     let mut dist = to - from;
-    let mut depth = rp_from.depth;
+    let mut depth = rp_from.depth();
     while dist > 0 && depth > 0 && rp_from.index_after(depth) == rp_from.node(depth).child_count() {
         depth -= 1;
         dist -= 1;

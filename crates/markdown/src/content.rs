@@ -1,7 +1,5 @@
-use crate::markdown::{MarkdownNodeType, MD};
-use crate::model::{util, ContentMatch, Fragment, Node, NodeType};
-use crate::util::then_some;
-use std::ops::RangeBounds;
+use crate::{MarkdownNodeType, MD};
+use prosemirror_model::{ContentMatch, NodeType};
 
 /// The content match type for markdown
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -29,45 +27,21 @@ pub enum MarkdownContentMatch {
 impl ContentMatch<MD> for MarkdownContentMatch {
     fn match_type(self, r#type: MarkdownNodeType) -> Option<Self> {
         match self {
-            Self::InlineStar => then_some(r#type.is_inline(), Self::InlineStar),
-            Self::BlockPlus | Self::BlockStar => then_some(r#type.is_block(), Self::BlockStar),
-            Self::OrTextImageStar => then_some(
-                matches!(r#type, MarkdownNodeType::Text | MarkdownNodeType::Image),
-                Self::OrTextImageStar,
-            ),
-            Self::TextStar => then_some(matches!(r#type, MarkdownNodeType::Text), Self::TextStar),
-            Self::ListItemPlus | Self::ListItemStar => then_some(
-                matches!(r#type, MarkdownNodeType::ListItem),
-                Self::ListItemStar,
-            ),
-            Self::ParagraphBlockStar => then_some(
-                matches!(r#type, MarkdownNodeType::Paragraph),
-                Self::BlockStar,
-            ),
+            Self::InlineStar => r#type.is_inline().then(|| Self::InlineStar),
+            Self::BlockPlus | Self::BlockStar => r#type.is_block().then(|| Self::BlockStar),
+            Self::OrTextImageStar => {
+                matches!(r#type, MarkdownNodeType::Text | MarkdownNodeType::Image)
+                    .then(|| Self::OrTextImageStar)
+            }
+            Self::TextStar => matches!(r#type, MarkdownNodeType::Text).then(|| Self::TextStar),
+            Self::ListItemPlus | Self::ListItemStar => {
+                matches!(r#type, MarkdownNodeType::ListItem).then(|| Self::ListItemStar)
+            }
+            Self::ParagraphBlockStar => {
+                matches!(r#type, MarkdownNodeType::Paragraph).then(|| Self::BlockStar)
+            }
             Self::Empty => None,
         }
-    }
-
-    fn match_fragment_range<R: RangeBounds<usize>>(
-        self,
-        fragment: &Fragment<MD>,
-        range: R,
-    ) -> Option<Self> {
-        let start = util::from(&range);
-        let end = util::to(&range, fragment.child_count());
-
-        let mut test = self;
-        for child in &fragment.children()[start..end] {
-            match test.match_type(child.r#type()) {
-                Some(next) => {
-                    test = next;
-                }
-                None => {
-                    return None;
-                }
-            }
-        }
-        Some(test)
     }
 
     fn valid_end(self) -> bool {

@@ -1,5 +1,5 @@
 use super::{util::Span, StepKind};
-use crate::model::{Fragment, Mark, MarkSet, Node, NodeType, Schema, Slice};
+use prosemirror_model::{Fragment, Mark, MarkSet, Node, NodeType, Schema, Slice};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;

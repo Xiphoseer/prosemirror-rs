@@ -5,11 +5,8 @@
 //! It can be used to create a collaborative editing authority that is able to apply steps to
 //! a document.
 
-#[macro_use]
-extern crate derive_new;
+#[cfg(test)]
+mod tests;
 
-pub(crate) mod de;
-pub mod markdown;
-pub mod model;
-pub mod transform;
-pub mod util;
+pub use prosemirror_model as model;
+pub use prosemirror_transform as transform;
