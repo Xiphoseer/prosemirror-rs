@@ -14,7 +14,7 @@ mod from_markdown;
 mod to_markdown;
 
 use prosemirror_model::{
-    AttrNode, Block, Fragment, Leaf, Mark, MarkSet, MarkType, Node, Text, TextNode,
+    AttrNode, Fragment, Leaf, Mark, MarkSet, MarkType, Node, Text, TextNode,
     NodeImpl,
 };
 pub use attrs::{
@@ -32,6 +32,16 @@ pub use to_markdown::{to_markdown, ToMarkdownError};
 //use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
+pub type MarkdownFragment = Fragment<MD>;
+
+#[prosemirror_derive::schema]
+/// # The markdown schema
+mod markdown {
+    enum Node {
+
+    }
+}
+
 /// The node type for the markdown schema
 #[derive(Node, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[prosemirror(schema = MD)]
@@ -39,16 +49,23 @@ use serde::{Deserialize, Serialize};
 pub enum MarkdownNode {
     /// The document root
     Doc {
-        content: Fragment<MD>
+        #[serde(default)]
+        content: MarkdownFragment,
     },
 
     /// A paragraph
     #[prosemirror(group = Block)]
-    Paragraph(Block<MD>),
-
+    Paragraph {
+        #[serde(default)]
+        content: MarkdownFragment,
+    },
+    
     /// A blockquote
     #[prosemirror(group = Block)]
-    Blockquote(Block<MD>),
+    Blockquote {
+        #[serde(default)]
+        content: MarkdownFragment,
+    },
 
     /// A horizontal line `<hr>`
     #[prosemirror(group = Block)]
@@ -72,7 +89,10 @@ pub enum MarkdownNode {
     
     /// A list item
     #[prosemirror(defining)]
-    ListItem(Block<MD>),
+    ListItem {
+        #[serde(default)]
+        content: MarkdownFragment,
+    },
 
     /// A text node
     #[prosemirror(group = Inline)]

@@ -30,11 +30,7 @@ pub trait NodeImpl<S: Schema> {
 
 /// A simple block node
 #[derive(Debug, Derivative, Deserialize, Serialize)]
-#[derivative(
-    Default(bound = ""),
-    PartialEq(bound = ""),
-    Eq(bound = "")
-)]
+#[derivative(Default(bound = ""), PartialEq(bound = ""), Eq(bound = ""))]
 #[serde(bound = "")]
 pub struct Block<S: Schema> {
     /// The content.
@@ -44,7 +40,9 @@ pub struct Block<S: Schema> {
 
 impl<S: Schema> Clone for Block<S> {
     fn clone(&self) -> Self {
-        Self { content: self.content.clone() }
+        Self {
+            content: self.content.clone(),
+        }
     }
 }
 
@@ -66,12 +64,7 @@ impl<S: Schema> NodeImpl<S> for Block<S> {
 
 /// A node with attributes
 #[derive(Debug, Derivative, Deserialize, Serialize)]
-#[derivative(
-    Clone(bound = "A: Clone"),
-    Default(bound = "A: Default"),
-    PartialEq(bound = "A: PartialEq"),
-    Eq(bound = "A: Eq")
-)]
+#[derivative(Clone(bound = "A: Clone"), PartialEq(bound = "A: PartialEq"))]
 #[serde(bound = "A: for<'d> Deserialize<'d> + Serialize")]
 pub struct AttrNode<S: Schema, A> {
     /// Attributes
@@ -79,9 +72,18 @@ pub struct AttrNode<S: Schema, A> {
 
     /// The content.
     #[serde(default)]
-    #[derivative(Debug(bound = ""))]
     pub content: Fragment<S>,
 }
+
+impl<S: Schema, A: Default> Default for AttrNode<S, A> {
+    fn default() -> Self {
+        Self {
+            attrs: A::default(),
+            content: Fragment::EMPTY,
+        }
+    }
+}
+impl<S: Schema, A: Eq> Eq for AttrNode<S, A> {}
 
 impl<S: Schema, A: Clone> NodeImpl<S> for AttrNode<S, A> {
     /// Copies this block, mapping the content
@@ -101,13 +103,11 @@ impl<S: Schema, A: Clone> NodeImpl<S> for AttrNode<S, A> {
 }
 
 /// A text node
-#[derive(Derivative, Deserialize, Serialize)]
+#[derive(Debug, Derivative, Deserialize, Serialize)]
 #[derivative(
-    Debug(bound = ""),
     Clone(bound = ""),
     Default(bound = ""),
     PartialEq(bound = ""),
-    Eq(bound = "")
 )]
 #[serde(bound = "")]
 pub struct TextNode<S: Schema> {
@@ -118,6 +118,8 @@ pub struct TextNode<S: Schema> {
     /// The actual text
     pub text: Text,
 }
+
+impl<S: Schema> Eq for TextNode<S> {}
 
 impl<S: Schema> NodeImpl<S> for TextNode<S> {
     fn copy<F>(&self, _: F) -> Self

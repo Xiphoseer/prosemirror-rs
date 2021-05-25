@@ -4,7 +4,7 @@
 //!
 //! See also: <https://github.com/prosemirror/prosemirror-test-builder>
 use super::{BulletListAttrs, CodeBlockAttrs, HeadingAttrs, MarkdownMark, MarkdownNode, MD};
-use prosemirror_model::{self, AttrNode, Block, Mark, Text, TextNode};
+use prosemirror_model::{self, AttrNode, Mark, Text, TextNode};
 
 type Fragment = prosemirror_model::Fragment<MD>;
 
@@ -104,16 +104,16 @@ pub fn strong(content: &str) -> MarkdownNode {
 
 /// Create a paragraph node.
 pub fn p<A: IntoFragment>(content: A) -> MarkdownNode {
-    MarkdownNode::Paragraph(Block {
+    MarkdownNode::Paragraph {
         content: content.into_fragment(),
-    })
+    }
 }
 
 /// Create a list item node.
 pub fn li<A: Into<Fragment>>(content: A) -> MarkdownNode {
-    MarkdownNode::ListItem(Block {
+    MarkdownNode::ListItem {
         content: content.into(),
-    })
+    }
 }
 
 /// Create a Bullet list node.
@@ -136,9 +136,9 @@ pub fn code_block<A: Into<Fragment>>(params: &str, content: A) -> MarkdownNode {
 
 /// Create a blockquote node.
 pub fn blockquote<A: IntoFragment>(content: A) -> MarkdownNode {
-    MarkdownNode::Blockquote(Block {
+    MarkdownNode::Blockquote {
         content: content.into_fragment(),
-    })
+    }
 }
 
 /// Create a node.
